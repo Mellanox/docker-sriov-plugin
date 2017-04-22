@@ -95,32 +95,4 @@ $ docker run -itd --net=mynet --name=web nginx
 
 ### Limitations
 
-It is not tested on Windows enviornment.
-
-### Alternative way to start plugin using docker compose
-**1** Alternate way through docker-compose to start a plugin
-
-You dont need to run this this step if you are runing through step 2 of quick start guide.
-
-Create the following `docker-compose.yml` file
-
-```yaml
-plugin:
-  image: gophernet/passthrough-plugin
-  volumes:
-    - /run/docker/plugins:/run/docker/plugins
-  net: host
-  stdin_open: true
-  tty: true
-  privileged: true
-  command: -d
-
-passthrough:
-  image: mellanox/passthrough-0.0.1
-  cap_add:
-    - NET_ADMIN
-  net: host
-```
-
-**2** `docker-compose up -d`
-
+It is not tested on Windows environment.
