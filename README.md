@@ -51,9 +51,9 @@ The quickstart instructions describe how to start the plugin and make use of it.
 $ docker pull mellanox/passthrough-plugin
 
 **3.** Run the plugin now
-
+```
 $ docker run -v /run/docker/plugins:/run/docker/plugins --net=host --privileged mellanox/passthrough-plugin
-
+```
 This will start the container and emits console logs of the plugin where its started.
 The powerful aspect of this is, it doesn't require user/administrator to restart the docker engine.
 
