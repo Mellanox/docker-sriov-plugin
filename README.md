@@ -92,4 +92,4 @@ $ docker run -itd --net=mynet --name=web nginx
 
 ### Limitations
 
-It is not tested on Windows environment.
+It supported on Linux environment.
