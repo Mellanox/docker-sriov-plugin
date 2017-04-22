@@ -35,7 +35,9 @@ In future more settings for each such netdevice and network will be added.
 ### Usecases
 
 (a) In certain use cases where high performance networking application running as container can benefit from such native devices.
+
 (b) It is probably good fit for NFV applications which can benefit of hardware based isolation, NIC adapter based switching, granular     control of the device, possibly at lower cpu utilization.
+
 (c) nested virtualization - where macvlan or ipvlan based nested containers on top of VF based network interface
 
 ### QuickStart Instructions
