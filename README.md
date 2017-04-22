@@ -59,9 +59,6 @@ $ docker run -v /run/docker/plugins:/run/docker/plugins --net=host --privileged 
 This will start the container and emits console logs of the plugin where its started.
 The powerful aspect of this is, it doesn't require user/administrator to restart the docker engine.
 
-Or
-If you like to do using docker compose, follow the steps at the end of readme.
-
 **4.** Test it out - SRIOV mode
 **4.1** Now you are ready to create a new network
 
