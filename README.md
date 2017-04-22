@@ -5,6 +5,7 @@ docker-passthrough-plugin
 
 This network plugin allows to have direct/passthrough access to the native Ethernet networking device to the Docker container(s).
 It provides two modes of operations.
+
 (1) sriov
     In this mode given netdev interface is used as PCIe physical function to define a network.
     All container instances will get one PCIe VF based network device when they are started.
