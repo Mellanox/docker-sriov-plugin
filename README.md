@@ -7,6 +7,7 @@ This network plugin allows to have direct/passthrough access to the native Ether
 It provides two modes of operations.
 
 (1) sriov
+
     In this mode given netdev interface is used as PCIe physical function to define a network.
     All container instances will get one PCIe VF based network device when they are started.
     This mode uses PCIe SRIOV capability of the network devices.
@@ -19,6 +20,7 @@ It provides two modes of operations.
     starting a container. This will reduce adminstative overheads in dealing with sriov enablement.
 
 (2) passthrough
+    
     In this mode given netdev interface is mapped to a container.
     Which means that there is one network device per network, and therefore every container gets one network.
 
