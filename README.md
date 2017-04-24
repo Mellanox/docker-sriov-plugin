@@ -77,14 +77,14 @@ $ docker run -itd --net=mynet --name=web nginx
 
 ```
 
-**7.** Test it out Passthrough mode
-**7.1** Now you are ready to create a new network
+**5.** Test it out Passthrough mode
+**5.1** Now you are ready to create a new network
 
 ```
 $ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=passthrough mynet
 ```
 
-**7.2** Now you are ready run container to make use of passthrough network and its interface
+**5.2** Now you are ready run container to make use of passthrough network and its interface
 ```
 $ docker run -itd --net=mynet --name=web nginx
 
