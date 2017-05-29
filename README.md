@@ -42,6 +42,8 @@ In future more settings for each such netdevice and network will be added.
 
 (c) nested virtualization - where macvlan or ipvlan based nested containers on top of VF based network interface
 
+(d) When using Infiniband (not RoCE), IPoIB netdevices can be directly mapped as passthrough devices without creating additional virtual devices.
+
 ### QuickStart Instructions
 
 The quickstart instructions describe how to start the plugin and make use of it.
