@@ -60,6 +60,7 @@ This will start the container and emits console logs of the plugin where its sta
 The powerful aspect of this is, it doesn't require user/administrator to restart the docker engine.
 
 **4.** Test it out - SRIOV mode
+
 **4.1** Now you are ready to create a new network
 
 Below ens2f0 is PF based netdevice.
@@ -78,6 +79,7 @@ $ docker run -itd --net=mynet --name=web nginx
 ```
 
 **5.** Test it out Passthrough mode
+
 **5.1** Now you are ready to create a new network
 
 ```
