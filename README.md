@@ -12,12 +12,12 @@ It provides two modes of operations.
     All container instances will get one PCIe VF based network device when they are started.
     This mode uses PCIe SRIOV capability of the network devices.
 
-    sriov mode provides native access to the actual PCIe based neworking device without any overheads of virtual devices.
+    sriov mode provides native access to the actual PCIe based networking device without any overheads of virtual devices.
     With this mode, every container can get dedicated NIC Tx and Rx queues to send receive application data without any contention
     to other containers.
 
     In sriov mode, plugin driver takes care to enable/disable sriov, assigning VF based network device to container during
-    starting a container. This will reduce adminstative overheads in dealing with sriov enablement.
+    starting a container. This will reduce administrative overheads in dealing with sriov enablement.
 
 (2) passthrough
     
@@ -27,7 +27,7 @@ It provides two modes of operations.
     In some cases there would be need to map bonded device directly without additional layer and without consuming any
     extra mac address. In such cases this passthrough plugin driver will be equally useful.
 
-In some sense both modes are similar to passthrough mode of KVM or similar virtulization technology.
+In some sense both modes are similar to passthrough mode of KVM or similar virtualization technology.
 
 With this plugin based interfaces, there is no limitation of IP address subnet for netdevice of container and netdevice of host.
 Any container can have any ip address, same or different subnet as that of host or other containers.
@@ -42,7 +42,7 @@ In future more settings for each such netdevice and network will be added.
 
 (c) nested virtualization - where macvlan or ipvlan based nested containers on top of VF based network interface
 
-(d) When using Infiniband (not RoCE), IPoIB netdevices can be directly mapped as passthrough devices without creating additional virtual devices.
+(d) When using InfiniBand (not RoCE), IPoIB netdevices can be directly mapped as passthrough devices without creating additional virtual devices.
 
 ### QuickStart Instructions
 
@@ -67,8 +67,8 @@ The powerful aspect of this is, it doesn't require user/administrator to restart
 
 Below ens2f0 is PF based netdevice.
 Mode is set to sriov, so plugin driver will automatically assign right VF netdevice
-to container when its started next.
-Subnet could be any different subnet than what ens2f0 has.
+to container when a container is started.
+Subnet of the netdevice of container and host can be different.
 
 ```
 $ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov mynet
