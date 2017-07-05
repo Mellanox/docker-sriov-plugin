@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"os"
+	"github.com/vishvananda/netlink"
+	"strings"
+	"strconv"
 )
 
 const (
@@ -164,4 +167,23 @@ func vfDevList(name string) ([]string, error) {
 		i++
 	}
 	return vfDirList, nil
+}
+
+func SetVFDefaultMacAddress(parentNetdev string, vfDir string, vfNetdevName string) (error) {
+
+	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
+	vfIndex, _ := strconv.Atoi(vfIndexStr)
+	ethHandle, err1 := netlink.LinkByName(vfNetdevName)
+	if err1 != nil {
+		return err1
+	}
+	ethAttr := ethHandle.Attrs()
+
+	parentHandle, err1 := netlink.LinkByName(parentNetdev)
+	if err1 != nil {
+		return err1
+	}
+
+	err2 := netlink.LinkSetVfHardwareAddr(parentHandle, vfIndex, ethAttr.HardwareAddr)
+	return err2
 }

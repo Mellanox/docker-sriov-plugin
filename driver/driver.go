@@ -308,8 +308,15 @@ func (d *driver) AllocVF(parentNetdev string, sriovState *sriovNetworkState) (st
 
 	pciDevName := vfPCIDevNameFromVfDir(parentNetdev, allocatedDev)
 	if pciDevName != "" {
+		SetVFDefaultMacAddress(parentNetdev, allocatedDev, vfNetdevName)
 		unbindVF(parentNetdev, pciDevName)
 		bindVF(parentNetdev, pciDevName)
+	}
+
+	/* get the new name, as this name can change after unbind-bind sequence */
+	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
+	if vfNetdevName == "" {
+		return "", ""
 	}
 
 	sriovState.vfDevList = sriovState.vfDevList[:len(sriovState.vfDevList) - 1]
