@@ -306,6 +306,12 @@ func (d *driver) AllocVF(parentNetdev string, sriovState *sriovNetworkState) (st
 		return "", ""
 	}
 
+	pciDevName := vfPCIDevNameFromVfDir(parentNetdev, allocatedDev)
+	if pciDevName != "" {
+		unbindVF(parentNetdev, pciDevName)
+		bindVF(parentNetdev, pciDevName)
+	}
+
 	sriovState.vfDevList = sriovState.vfDevList[:len(sriovState.vfDevList) - 1]
 
 	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v", parentNetdev, allocatedDev, vfNetdevName)

@@ -2,11 +2,16 @@ package driver
 
 import (
 	"fmt"
+	"path/filepath"
+	"os"
 )
 
 const (
 	netSysDir = "/sys/class/net"
 	netDevPrefix = "device"
+	netdevDriverDir = "device/driver"
+	netdevUnbindFile = "unbind"
+	netdevBindFile = "bind"
 
 	netDevMaxVFCountFile = "sriov_totalvfs"
 	netDevCurrentVFCountFile = "sriov_numvfs"
@@ -106,6 +111,39 @@ func vfNetdevNameFromParent(parentNetdev string, vfDir string) (string) {
 	} else {
 		return vfNetdev[0]
 	}
+}
+
+func vfPCIDevNameFromVfDir(parentNetdev string, vfDir string) (string) {
+	link := filepath.Join(netSysDir, parentNetdev, netDevPrefix, vfDir) 
+	pciDevDir, err := os.Readlink(link)
+	if err != nil {
+		return ""
+	}
+	if (len(pciDevDir) <=3) {
+		return ""
+	}
+
+	return pciDevDir[3:len(pciDevDir)]
+}
+
+func unbindVF(parentNetdev string, vfPCIDevName string) (error) {
+	cmdFile := filepath.Join(netSysDir, parentNetdev, netdevDriverDir, netdevUnbindFile) 
+
+	cmdFileObj := fileObject {
+				Path: cmdFile,
+		       }
+
+	return cmdFileObj.Write(vfPCIDevName)
+}
+
+func bindVF(parentNetdev string, vfPCIDevName string) (error) {
+	cmdFile := filepath.Join(netSysDir, parentNetdev, netdevDriverDir, netdevBindFile) 
+
+	cmdFileObj := fileObject {
+				Path: cmdFile,
+		       }
+
+	return cmdFileObj.Write(vfPCIDevName)
 }
 
 func vfDevList(name string) ([]string, error) {
