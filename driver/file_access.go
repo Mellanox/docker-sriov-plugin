@@ -27,6 +27,11 @@ func (attrib *fileObject) OpenRO() (err error) {
 	return err
 }
 
+func (attrib *fileObject) OpenWO() (err error) {
+	attrib.File, err = os.OpenFile(attrib.Path, os.O_WRONLY, 0444)
+	return err
+}
+
 func (attrib *fileObject) Close() (err error) {
 	err = attrib.File.Close()
 	attrib.File = nil
@@ -56,7 +61,7 @@ func (attrib *fileObject) Read() (str string, err error) {
 
 func (attrib *fileObject) Write(value string) (err error) {
 	if attrib.File == nil {
-		err = attrib.Open()
+		err = attrib.OpenWO()
 		if err != nil {
 			return
 		}
