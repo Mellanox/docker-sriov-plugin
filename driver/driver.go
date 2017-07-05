@@ -29,6 +29,7 @@ type ptEndpoint struct {
 	/* value */
 	HardwareAddr	string
 	devName		string
+	vfName		string
 	mtu		int
 	Address		string
 	sandboxKey	string
@@ -255,6 +256,13 @@ func (d *driver) CreatePTEndpoint(r *network.CreateEndpointRequest,
 	return resp, nil
 }
 
+func (d *driver) disableSRIOV(nw *ptNetwork) {
+	netdevDisableSRIOV(nw.ndevName)
+	nw.sriovState.state = sriovDisabled
+	nw.sriovState.vfDevList = nil
+	nw.sriovState.discoveredVFCount = 0
+}
+
 func (d *driver) DiscoverVFs(nw *ptNetwork) (error) {
 
 	var err error
@@ -269,9 +277,9 @@ func (d *driver) DiscoverVFs(nw *ptNetwork) (error) {
 
 	// if we haven't discovered them yet, try to discover
 	if nw.sriovState.discoveredVFCount == 0 {
-		nw.sriovState.vfDevList, err = netdevGetVfNetdevList(nw.ndevName)
+		nw.sriovState.vfDevList, err = vfDevList(nw.ndevName)
 		if err != nil {
-			netdevDisableSRIOV(nw.ndevName)
+			d.disableSRIOV(nw)
 			return err
 		}
 		nw.sriovState.discoveredVFCount = len(nw.sriovState.vfDevList)
@@ -281,40 +289,52 @@ func (d *driver) DiscoverVFs(nw *ptNetwork) (error) {
 	return nil
 }
 
-func (d *driver) AllocVF(sriovState *sriovNetworkState) (string) {
+func (d *driver) AllocVF(parentNetdev string, sriovState *sriovNetworkState) (string, string) {
 	var allocatedDev string
+	var vfNetdevName string
 
+	log.Debugf("AllocVF Called: [ %+v ]", parentNetdev)
 	if len(sriovState.vfDevList) == 0 {
-		return ""
+		return "", ""
 	}
 
 	// fetch the last element
 	allocatedDev = sriovState.vfDevList[len(sriovState.vfDevList) - 1]
 
+	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
+	if vfNetdevName == "" {
+		return "", ""
+	}
+
 	sriovState.vfDevList = sriovState.vfDevList[:len(sriovState.vfDevList) - 1]
-	return allocatedDev
+
+	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v", parentNetdev, allocatedDev, vfNetdevName)
+	return allocatedDev, vfNetdevName
 }
 
 func (d *driver) FreeVF(sriovState *sriovNetworkState, name string) {
+	log.Debugf("FreeVF %v", name)
 	sriovState.vfDevList = append(sriovState.vfDevList, name)
 }
 
 func (d *driver) CreateSRIOVEndpoint(r *network.CreateEndpointRequest,
 				  nw *ptNetwork) (*network.CreateEndpointResponse, error) {
+	var netdevName string
+	var vfName string
 	var err error
-	var newEpName string
 
 	err = d.DiscoverVFs(nw)
 	if err != nil {
 		return nil, err
 	}
 
-	newEpName = d.AllocVF(&nw.sriovState)
-	if newEpName == "" {
+	vfName, netdevName = d.AllocVF(nw.ndevName, &nw.sriovState)
+	if netdevName == "" {
 		return nil, fmt.Errorf("All devices in use [ %s ].", r.NetworkID)
 	}
 	ndev := &ptEndpoint {
-		devName: newEpName,
+		devName: netdevName,
+		vfName: vfName,
 		Address: r.Interface.Address,
 	}
 	nw.ndevEndpoints[r.EndpointID] = ndev
@@ -448,11 +468,11 @@ func (d *driver) DeleteEndpoint(r *network.DeleteEndpointRequest) error {
 	}
 
 	if (nw.mode == networkModeSRIOV) {
-		d.FreeVF(&nw.sriovState, endpoint.devName)
+		d.FreeVF(&nw.sriovState, endpoint.vfName)
 		// disable SRIOV when last endpoint is getting deleted
 		log.Debugf("DeleteEndpoint  vfDev list length -------------: [ %+d ]", len(nw.sriovState.vfDevList))
 		if len(nw.sriovState.vfDevList) == nw.sriovState.discoveredVFCount {
-			netdevDisableSRIOV(nw.ndevName)
+			d.disableSRIOV(nw)
 		}
 	} 
 

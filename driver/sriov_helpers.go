@@ -96,8 +96,20 @@ func netdevDisableSRIOV(name string) (error) {
 	return netdevSetMaxVFCount(name, 0)	
 }
 
-func netdevGetVfNetdevList(name string) ([]string, error) {
-	var vfNetdevNames []string
+func vfNetdevNameFromParent(parentNetdev string, vfDir string) (string) {
+
+	devDirName := netDevDeviceDir(parentNetdev)
+
+	vfNetdev, _ := lsFilesWithPrefix(devDirName + "/" + vfDir + "/" + "net", "", false)
+	if len(vfNetdev) <= 0 {
+		return ""
+	} else {
+		return vfNetdev[0]
+	}
+}
+
+func vfDevList(name string) ([]string, error) {
+	var vfDirList []string
 	var i int
 	devDirName := netDevDeviceDir(name)
 
@@ -109,18 +121,9 @@ func netdevGetVfNetdevList(name string) ([]string, error) {
 
 	i = 0
 	for _, vfDir := range virtFnDirs {
-		fname, _ := lsFilesWithPrefix(devDirName + "/" + vfDir + "/" + "net", "", false)
-
-		if len(fname) <= 0 {
-			continue;
-		}
-		if len(fname) > 1 {
-			return nil, nil
-		}
-
-		vfNetdevNames = append(vfNetdevNames, fname[0])
-		fmt.Println("virtual device name = ", vfNetdevNames[i])
+		vfDirList = append(vfDirList, vfDir)
+		fmt.Println("virtual device name = ", vfDirList[i])
 		i++
 	}
-	return vfNetdevNames, nil
+	return vfDirList, nil
 }
