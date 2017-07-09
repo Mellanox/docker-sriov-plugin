@@ -163,7 +163,6 @@ func vfDevList(name string) ([]string, error) {
 	i = 0
 	for _, vfDir := range virtFnDirs {
 		vfDirList = append(vfDirList, vfDir)
-		fmt.Println("virtual device name = ", vfDirList[i])
 		i++
 	}
 	return vfDirList, nil
