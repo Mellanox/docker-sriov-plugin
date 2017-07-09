@@ -63,8 +63,11 @@ type NwIface interface {
 				   nid string, ndevName string,
 				   networkMode string,
 				   ipv4Data *network.IPAMData) error
+	DeleteNetwork(d *driver, req *network.DeleteNetworkRequest)
+
 	CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error)
 	DeleteEndpoint(endpoint *ptEndpoint)
+
 	getGenNw() *genericNetwork
 }
 
@@ -207,6 +210,11 @@ func (d *driver) DeleteNetwork(req *network.DeleteNetworkRequest) error {
 
 	d.Lock()
 	defer d.Unlock()
+
+	nw := d.networks[req.NetworkID]
+	if nw != nil {
+		nw.DeleteNetwork(d, req)
+	}
 
 	delete(d.networks, req.NetworkID)
 	return nil
@@ -375,14 +383,17 @@ func (d *driver) DiscoverNew(r *network.DiscoveryNotification) error {
 	log.Debugf("DiscoverNew Called: [ %+v ]", r)
 	return nil
 }
+
 func (d *driver) DiscoverDelete(r *network.DiscoveryNotification) error {
 	log.Debugf("DiscoverDelete Called: [ %+v ]", r)
 	return nil
 }
+
 func (d *driver) ProgramExternalConnectivity(r *network.ProgramExternalConnectivityRequest) error {
 	log.Debugf("ProgramExternalConnectivity Called: [ %+v ]", r)
 	return nil
 }
+
 func (d *driver) RevokeExternalConnectivity(r *network.RevokeExternalConnectivityRequest) error {
 	log.Debugf("RevokeExternalConnectivity Called: [ %+v ]", r)
 	return nil
@@ -417,6 +428,10 @@ func (pt *ptNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	return nil
 }
 
+func (pt *ptNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
+
+}
+
 func (nw *ptNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
 	if len(nw.genNw.ndevEndpoints) > 0 {
 		return nil, fmt.Errorf("supports only one device")
@@ -443,4 +458,3 @@ func (nw *ptNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.
 func (nw *ptNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 
 }
-

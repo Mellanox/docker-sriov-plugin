@@ -42,10 +42,14 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		nw.state = SRIOV_DISABLED
 	}
 
+	err = nw.DiscoverVFs()
+	if err != nil {
+		return err
+	}
+
 	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
 }
-
 
 func (nw *sriovNetwork) disableSRIOV() {
 	netdevDisableSRIOV(nw.genNw.ndevName)
@@ -124,12 +128,6 @@ func (nw *sriovNetwork) FreeVF(name string) {
 func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
 	var netdevName string
 	var vfName string
-	var err error
-
-	err = nw.DiscoverVFs()
-	if err != nil {
-		return nil, err
-	}
 
 	vfName, netdevName = nw.AllocVF(nw.genNw.ndevName)
 	if netdevName == "" {
@@ -155,14 +153,12 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	return resp, nil
 }
 
-
 func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 
 	nw.FreeVF(endpoint.vfName)
-	// disable SRIOV when last endpoint is getting deleted
 	log.Debugf("DeleteEndpoint  vfDev list length -------------: [ %+d ]", len(nw.vfDevList))
-	if len(nw.vfDevList) == nw.discoveredVFCount {
-		nw.disableSRIOV()
-	}
 }
 
+func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
+	nw.disableSRIOV()
+}
