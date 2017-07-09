@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/docker/go-plugins-helpers/network"
 
@@ -20,6 +21,7 @@ type sriovNetwork struct {
 	discoveredVFCount	int
 	maxVFCount		int
 	state			string
+	vlan			int
 }
 
 func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
@@ -27,6 +29,7 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 			       ipv4Data *network.IPAMData) error {
 	var curVFs int
 	var err error
+	var vlan int
 
 	ndevName := options[networkDevice]
 	err = d.getNetworkByGateway(ipv4Data.Gateway)
@@ -34,6 +37,12 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		return err
 	}
 
+	if options[sriovVlan] != "" {
+		vlan, _ = strconv.Atoi(options[sriovVlan])
+		if vlan > 4095 {
+			return fmt.Errorf("vlan id out of range")
+		}
+	}
 	nw.genNw = genNw
 
 	nw.maxVFCount, err = netdevGetMaxVFCount(ndevName)
@@ -54,6 +63,8 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	if err != nil {
 		return err
 	}
+	// store vlan so that when VFs are attached to container, vlan will be set at that time
+	nw.vlan = vlan
 
 	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
@@ -111,6 +122,9 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 	pciDevName := vfPCIDevNameFromVfDir(parentNetdev, allocatedDev)
 	if pciDevName != "" {
 		SetVFDefaultMacAddress(parentNetdev, allocatedDev, vfNetdevName)
+		if nw.vlan > 0 {
+			SetVFVlan(parentNetdev, allocatedDev, nw.vlan)
+		}
 		unbindVF(parentNetdev, pciDevName)
 		bindVF(parentNetdev, pciDevName)
 	}
