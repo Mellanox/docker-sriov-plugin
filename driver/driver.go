@@ -15,11 +15,12 @@ import (
 
 const (
 	containerVethPrefix	= "eth"
-	parentOpt		= "netdevice"   // netdevice interface -o netdevice
+	networkDevice		= "netdevice"   // netdevice interface -o netdevice
 
 	networkMode		= "mode"
 	networkModePT		= "passthrough"
 	networkModeSRIOV	= "sriov"
+	sriovVlan		= "vlan"
 )
 
 type ptEndpoint struct {
@@ -52,8 +53,7 @@ type ptNetwork struct {
 
 type NwIface interface {
 	CreateNetwork(d *driver, genNw *genericNetwork,
-				   nid string, ndevName string,
-				   networkMode string,
+				   nid string, options map[string]string,
 				   ipv4Data *network.IPAMData) error
 	DeleteNetwork(d *driver, req *network.DeleteNetworkRequest)
 
@@ -87,59 +87,57 @@ func (d *driver) GetCapabilities() (*network.CapabilitiesResponse, error) {
 }
 
 // parseNetworkGenericOptions parses generic driver docker network options
-func parseNetworkGenericOptions(data interface{}) (string, string, error) {
+func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 	var err	error
-	var name, mode string
 
-	name = ""
-	mode = ""
+	options := make(map[string]string)
 
 	switch opt := data.(type) {
 	case map[string]interface {}:
 		for key, value := range opt {
 			switch key {
-			case parentOpt:
-				name = fmt.Sprintf("%s", value)
+			case networkDevice:
+				options[key] = fmt.Sprintf("%s", value)
 			case networkMode:
-				mode = fmt.Sprintf("%s", value)
+				options[key] = fmt.Sprintf("%s", value)
+			case sriovVlan:
+				options[key] = fmt.Sprintf("%s", value)
 			}
 		}
-		log.Debugf("parseNetworkGenericOptions netdev: [%s] mode: [%s]", name, mode)
+		log.Debugf("parseNetworkGenericOptions %v", options)
 	default:
 		log.Debugf("unrecognized network config format: %v\n", reflect.TypeOf(opt))
 	}
 
-	if mode == "" {
+	if options[networkMode] == "" {
 		// default to passthrough
-		mode = networkModePT
+		options[networkMode] = networkModePT
 	} else {
-		if (mode != networkModePT && mode != networkModeSRIOV) {
-			return "", "", fmt.Errorf("valid modes are: passthrough and sriov")
+		if (options[networkMode] != networkModePT &&
+		    options[networkMode] != networkModeSRIOV) {
+			return options, fmt.Errorf("valid modes are: passthrough and sriov")
 		}
 	}
-	if name == "" {
-		if mode == networkModeSRIOV {
-			return "", "", fmt.Errorf("sriov mode requires netdevice")
+	if options[networkDevice] == "" {
+		if options[networkMode] == networkModeSRIOV {
+			return options, fmt.Errorf("sriov mode requires netdevice")
 		} else {
-			return "", "", fmt.Errorf("passthrough mode requires netdevice")
+			return options, fmt.Errorf("passthrough mode requires netdevice")
 		}
 	}
-	return name, mode, err
+	return options, err
 }
 
-func parseNetworkOptions(id string, option options.Generic) (string, string, error) {
-	var err    error
-	var name, mode   string
+func parseNetworkOptions(id string, option options.Generic) (map[string]string, error) {
 
 	// parse generic labels first
 	genData, ok := option[netlabel.GenericData]
 	if ok && genData != nil {
-		name, mode, err = parseNetworkGenericOptions(genData);
-		if err != nil {
-			return "", "", err
-		}
+		options, err := parseNetworkGenericOptions(genData)
+
+		return options, err
 	}
-	return name, mode, nil
+	return nil, fmt.Errorf("invalid options")
 }
 
 func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
@@ -155,34 +153,26 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 		return fmt.Errorf("Network gateway config miss.")
 	}
 
-	name, mode, ret := parseNetworkOptions(req.NetworkID, req.Options)
+	options, ret := parseNetworkOptions(req.NetworkID, req.Options)
 	if ret != nil {
 		log.Debugf("CreateNetwork network options parse error")
 		return ret
 	}
-	if name == "" {
-		log.Debugf("CreateNetwork network options invalid/null net device name")
-		return fmt.Errorf("CreateNetwork network options invalid/null net device name")
-	}
-	if mode == "" {
-		mode = "passthrough"
-	}
 
 	ipv4Data := req.IPv4Data[0]
 	
+	genNw := createGenNw(req.NetworkID, options[networkDevice], options[networkMode], ipv4Data)
 
-	genNw := createGenNw(req.NetworkID, name, mode, ipv4Data)
-
-	if mode == "passthrough" {
+	if options[networkMode] == "passthrough" {
 		nw := ptNetwork { }
-		err = nw.CreateNetwork(d, genNw, req.NetworkID, name, mode, ipv4Data)
+		err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
 		if err != nil {
 			return err
 		}
 		d.networks[req.NetworkID] = &nw
 	} else {
 		nw := sriovNetwork { }
-		err = nw.CreateNetwork(d, genNw, req.NetworkID, name, mode, ipv4Data)
+		err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
 		if err != nil {
 			return err
 		}
@@ -405,8 +395,7 @@ func (d *driver) getNetworkByGateway(gateway string) error {
 }
 
 func (pt *ptNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
-				   nid string, ndevName string,
-				   networkMode string,
+				   nid string, options map[string]string,
 				   ipv4Data *network.IPAMData) error {
 	var err error
 

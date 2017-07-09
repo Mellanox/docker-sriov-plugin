@@ -23,12 +23,12 @@ type sriovNetwork struct {
 }
 
 func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
-			       nid string, ndevName string,
-			       networkMode string,
+			       nid string, options map[string]string,
 			       ipv4Data *network.IPAMData) error {
 	var curVFs int
 	var err error
 
+	ndevName := options[networkDevice]
 	err = d.getNetworkByGateway(ipv4Data.Gateway)
 	if err != nil {
 		return err
