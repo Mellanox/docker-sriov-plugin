@@ -29,80 +29,68 @@ type ptEndpoint struct {
 	/* value */
 	HardwareAddr	string
 	devName		string
-	vfName		string
 	mtu		int
 	Address		string
 	sandboxKey	string
+	vfName		string
 }
 
 const (
-	sriovEnabled	= "enabled"
-	sriovDisabled	= "disabled"
+	SRIOV_ENABLED	= "enabled"
+	SRIOV_DISABLED	= "disabled"
 	sriovUnsupported = "unsupported"
 )
 
-type sriovNetworkState struct {
-	vfDevList		[]string	
+type genericNetwork struct {
+	id		string
+	lock		sync.Mutex
+	IPv4Data	*network.IPAMData
+	ndevEndpoints	map[string]*ptEndpoint
+	driver		*driver // The network's driver
+	mode		string	// SRIOV or Passthough
+
+	ndevName	string
+}
+
+type ptNetwork struct {
+	genNw		*genericNetwork
+}
+
+type sriovNetwork struct {
+	genNw			*genericNetwork
+	vfDevList		[]string
 	discoveredVFCount	int
 	maxVFCount		int
 	state			string
 }
 
-type ptNetwork struct {
-	id		string
-	IPv4Data	*network.IPAMData
-	ndevEndpoints	map[string]*ptEndpoint
-	driver		*driver // The network's driver
-	ndevName	string
-	mode		string	// SRIOV or Passthough
-	sriovState	sriovNetworkState 
-	lock		sync.Mutex
+type NwIface interface {
+	CreateNetwork(d *driver, genNw *genericNetwork,
+				   nid string, ndevName string,
+				   networkMode string,
+				   ipv4Data *network.IPAMData) error
+	CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error)
+	DeleteEndpoint(endpoint *ptEndpoint)
+	getGenNw() *genericNetwork
 }
 
 type driver struct {
-	// below map maps a network id to ptNetwork object
-	networks	map[string]*ptNetwork
+	// below map maps a network id to NwInterface object
+	networks	map[string]NwIface
 	sync.Mutex
 }
 
-func (d *driver) RegisterNetwork(nid string, ndevName string,
-				 networkMode string,
-				 ipv4Data *network.IPAMData) error {
-	var err error
+func createGenNw(nid string, ndevName string,
+		 networkMode string, ipv4Data *network.IPAMData) *genericNetwork {
 
-	if nw := d.getNetworkByGateway(ipv4Data.Gateway); nw != nil {
-		return fmt.Errorf("Exist network [%s] with same gateway [%s]", nw.id, nw.IPv4Data.Gateway)
-	}
-
+	genNw := genericNetwork { }
 	ndevs := map[string]*ptEndpoint{}
-	nw := ptNetwork {
-		id:        nid,
-		IPv4Data:  ipv4Data,
-		ndevEndpoints: ndevs,
-		ndevName: ndevName,
-		mode : networkMode,
-	}
-
-	if networkMode == networkModeSRIOV {
-		var curVFs int
-		nw.sriovState.maxVFCount, err = netdevGetMaxVFCount(ndevName)
-		if err != nil {
-			return err
-		}
-		curVFs, err = netdevGetEnabledVFCount(ndevName)
-		if err != nil {
-			return err
-		}
-		if curVFs != 0 {
-			nw.sriovState.state = sriovEnabled
-		} else {
-			nw.sriovState.state = sriovDisabled
-		}
-	}
-
-	d.networks[nid] = &nw 
-	log.Debugf("RegisterNetwork : [%s] IPv4Data : [ %+v ]\n", nw.id, nw.IPv4Data)
-	return nil
+	genNw.id = nid
+	genNw.mode = networkMode
+	genNw.IPv4Data = ipv4Data
+	genNw.ndevEndpoints = ndevs
+	genNw.ndevName = ndevName
+	return &genNw
 }
 
 func (d *driver) GetCapabilities() (*network.CapabilitiesResponse, error) {
@@ -166,6 +154,8 @@ func parseNetworkOptions(id string, option options.Generic) (string, string, err
 }
 
 func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
+	var err error
+
 	log.Debugf("CreateNetwork Called: [ %+v ]\n", req)
 	log.Debugf("CreateNetwork IPv4Data len : [ %v ]\n", len(req.IPv4Data))
 
@@ -190,9 +180,24 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 	}
 
 	ipv4Data := req.IPv4Data[0]
-	err := d.RegisterNetwork(req.NetworkID, name, mode, ipv4Data)
-	if err != nil {
-		return err
+	
+
+	genNw := createGenNw(req.NetworkID, name, mode, ipv4Data)
+
+	if mode == "passthrough" {
+		nw := ptNetwork { }
+		err = nw.CreateNetwork(d, genNw, req.NetworkID, name, mode, ipv4Data)
+		if err != nil {
+			return err
+		}
+		d.networks[req.NetworkID] = &nw
+	} else {
+		nw := sriovNetwork { }
+		err = nw.CreateNetwork(d, genNw, req.NetworkID, name, mode, ipv4Data)
+		if err != nil {
+			return err
+		}
+		d.networks[req.NetworkID] = &nw
 	}
 	return nil
 }
@@ -224,144 +229,13 @@ func StartDriver() (*driver, error) {
 	// be later on referred by using id passed in CreateNetwork, DeleteNetwork
 	// etc operations.
 
-	dnetworks := map[string]*ptNetwork{}
+	//dnetworks := make(map[string]interface{})
+	dnetworks := make(map[string]NwIface)
 
 	driver := &driver {
 		networks: dnetworks,
 	}
 	return driver, nil
-}
-
-func (d *driver) CreatePTEndpoint(r *network.CreateEndpointRequest,
-				  nw *ptNetwork) (*network.CreateEndpointResponse, error) {
-	if len(nw.ndevEndpoints) > 0 {
-		return nil, fmt.Errorf("supports only one device")
-	}
-
-	ndev := &ptEndpoint {
-		devName:   nw.ndevName,
-		Address: r.Interface.Address,
-	}
-	nw.ndevEndpoints[r.EndpointID] = ndev
-
-	endpointInterface := &network.EndpointInterface{}
-	if r.Interface.Address == "" {
-		endpointInterface.Address = ndev.Address
-	}
-	if r.Interface.MacAddress == "" {
-		//endpointInterface.MacAddress = ndev.HardwareAddr
-	}
-	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
-	log.Debugf("CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
-	return resp, nil
-}
-
-func (d *driver) disableSRIOV(nw *ptNetwork) {
-	netdevDisableSRIOV(nw.ndevName)
-	nw.sriovState.state = sriovDisabled
-	nw.sriovState.vfDevList = nil
-	nw.sriovState.discoveredVFCount = 0
-}
-
-func (d *driver) DiscoverVFs(nw *ptNetwork) (error) {
-
-	var err error
-
-	if nw.sriovState.state == sriovDisabled {
-		err = netdevEnableSRIOV(nw.ndevName)
-		if err != nil {
-			return err
-		}
-	}
-	nw.sriovState.state = sriovEnabled
-
-	// if we haven't discovered them yet, try to discover
-	if nw.sriovState.discoveredVFCount == 0 {
-		nw.sriovState.vfDevList, err = vfDevList(nw.ndevName)
-		if err != nil {
-			d.disableSRIOV(nw)
-			return err
-		}
-		nw.sriovState.discoveredVFCount = len(nw.sriovState.vfDevList)
-	}
-
-	log.Debugf("DiscoverVF vfDev list length -------------: [ %+d ]", len(nw.sriovState.vfDevList))
-	return nil
-}
-
-func (d *driver) AllocVF(parentNetdev string, sriovState *sriovNetworkState) (string, string) {
-	var allocatedDev string
-	var vfNetdevName string
-
-	log.Debugf("AllocVF Called: [ %+v ]", parentNetdev)
-	if len(sriovState.vfDevList) == 0 {
-		return "", ""
-	}
-
-	// fetch the last element
-	allocatedDev = sriovState.vfDevList[len(sriovState.vfDevList) - 1]
-
-	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
-	if vfNetdevName == "" {
-		return "", ""
-	}
-
-	pciDevName := vfPCIDevNameFromVfDir(parentNetdev, allocatedDev)
-	if pciDevName != "" {
-		SetVFDefaultMacAddress(parentNetdev, allocatedDev, vfNetdevName)
-		unbindVF(parentNetdev, pciDevName)
-		bindVF(parentNetdev, pciDevName)
-	}
-
-	/* get the new name, as this name can change after unbind-bind sequence */
-	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
-	if vfNetdevName == "" {
-		return "", ""
-	}
-
-	sriovState.vfDevList = sriovState.vfDevList[:len(sriovState.vfDevList) - 1]
-
-	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v", parentNetdev, allocatedDev, vfNetdevName)
-	return allocatedDev, vfNetdevName
-}
-
-func (d *driver) FreeVF(sriovState *sriovNetworkState, name string) {
-	log.Debugf("FreeVF %v", name)
-	sriovState.vfDevList = append(sriovState.vfDevList, name)
-}
-
-func (d *driver) CreateSRIOVEndpoint(r *network.CreateEndpointRequest,
-				  nw *ptNetwork) (*network.CreateEndpointResponse, error) {
-	var netdevName string
-	var vfName string
-	var err error
-
-	err = d.DiscoverVFs(nw)
-	if err != nil {
-		return nil, err
-	}
-
-	vfName, netdevName = d.AllocVF(nw.ndevName, &nw.sriovState)
-	if netdevName == "" {
-		return nil, fmt.Errorf("All devices in use [ %s ].", r.NetworkID)
-	}
-	ndev := &ptEndpoint {
-		devName: netdevName,
-		vfName: vfName,
-		Address: r.Interface.Address,
-	}
-	nw.ndevEndpoints[r.EndpointID] = ndev
-
-	endpointInterface := &network.EndpointInterface{}
-	if r.Interface.Address == "" {
-		endpointInterface.Address = ndev.Address
-	}
-	if r.Interface.MacAddress == "" {
-		//endpointInterface.MacAddress = ndev.HardwareAddr
-	}
-	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
-	log.Debugf("CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
-	return resp, nil
 }
 
 func (d *driver) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
@@ -373,14 +247,30 @@ func (d *driver) CreateEndpoint(r *network.CreateEndpointRequest) (*network.Crea
 
 	nw := d.networks[r.NetworkID]
 	if nw == nil {
-		return nil, fmt.Errorf("Can not find network [ %s ].", r.NetworkID)
+		return nil, fmt.Errorf("Plugin can not find network [ %s ].", r.NetworkID)
 	}
 
-	if (nw.mode == networkModePT) {
-		return d.CreatePTEndpoint(r, nw)
-	} else {
-		return d.CreateSRIOVEndpoint(r, nw)
+	return nw.CreateEndpoint(r)
+}
+
+func getEndpoint(genNw *genericNetwork, endpointID string) *ptEndpoint {
+	return genNw.ndevEndpoints[endpointID]
+}
+
+func (nw *ptNetwork) getGenNw() *genericNetwork {
+	return nw.genNw
+}
+
+func (nw *sriovNetwork) getGenNw() *genericNetwork {
+	return nw.genNw
+}
+
+func (d *driver) getGenNwFromNetworkID(networkID string) *genericNetwork {
+	nw := d.networks[networkID]
+	if nw == nil {
+		return nil
 	}
+	return nw.getGenNw()
 }
 
 func (d *driver) EndpointInfo(r *network.InfoRequest) (*network.InfoResponse, error) {
@@ -388,12 +278,12 @@ func (d *driver) EndpointInfo(r *network.InfoRequest) (*network.InfoResponse, er
 	d.Lock()
 	defer d.Unlock()
 
-	nw := d.networks[r.NetworkID]
-	if nw == nil {
+	genNw := d.getGenNwFromNetworkID(r.NetworkID)
+	if genNw == nil {
 		return nil, fmt.Errorf("Can not find network [ %s ].", r.NetworkID)
 	}
 
-	endpoint := nw.ndevEndpoints[r.EndpointID]
+	endpoint := getEndpoint(genNw, r.EndpointID)
 	if endpoint == nil {
 		return nil, fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
 	}
@@ -414,12 +304,12 @@ func (d *driver) Join(r *network.JoinRequest) (*network.JoinResponse, error) {
 	d.Lock()
 	defer d.Unlock()
 
-	nw := d.networks[r.NetworkID]
-	if nw == nil {
+	genNw := d.getGenNwFromNetworkID(r.NetworkID)
+	if genNw == nil {
 		return nil, fmt.Errorf("Can not find network [ %s ].", r.NetworkID)
 	}
 
-	endpoint := nw.ndevEndpoints[r.EndpointID]
+	endpoint := getEndpoint(genNw, r.EndpointID)
 	if endpoint == nil {
 		return nil, fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
 	}
@@ -427,9 +317,9 @@ func (d *driver) Join(r *network.JoinRequest) (*network.JoinResponse, error) {
 	if endpoint.sandboxKey != "" {
 		return nil, fmt.Errorf("Endpoint [%s] has bean bind to sandbox [%s]", r.EndpointID, endpoint.sandboxKey)
 	}
-	gw, _, err := net.ParseCIDR(nw.IPv4Data.Gateway)
+	gw, _, err := net.ParseCIDR(genNw.IPv4Data.Gateway)
 	if err != nil {
-		return nil, fmt.Errorf("Parse gateway [%s] error: %s", nw.IPv4Data.Gateway, err.Error())
+		return nil, fmt.Errorf("Parse gateway [%s] error: %s", genNw.IPv4Data.Gateway, err.Error())
 	}
 	endpoint.sandboxKey = r.SandboxKey
 	resp := network.JoinResponse{
@@ -450,12 +340,12 @@ func (d *driver) Leave(r *network.LeaveRequest) error {
 	d.Lock()
 	defer d.Unlock()
 
-	nw := d.networks[r.NetworkID]
-	if nw == nil {
+	genNw := d.getGenNwFromNetworkID(r.NetworkID)
+	if genNw == nil {
 		return fmt.Errorf("Can not find network [ %s ].", r.NetworkID)
 	}
 
-	endpoint := nw.ndevEndpoints[r.EndpointID]
+	endpoint := getEndpoint(genNw, r.EndpointID)
 	if endpoint == nil {
 		return fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
 	}
@@ -470,26 +360,20 @@ func (d *driver) DeleteEndpoint(r *network.DeleteEndpointRequest) error {
 	d.Lock()
 	defer d.Unlock()
 
-	nw := d.networks[r.NetworkID]
-	if nw == nil {
+	genNw := d.getGenNwFromNetworkID(r.NetworkID)
+	if genNw == nil {
 		return fmt.Errorf("Can not find network [ %s ].", r.NetworkID)
 	}
 
-	endpoint := nw.ndevEndpoints[r.EndpointID]
+	endpoint := getEndpoint(genNw, r.EndpointID)
 	if endpoint == nil {
 		return fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
 	}
 
-	if (nw.mode == networkModeSRIOV) {
-		d.FreeVF(&nw.sriovState, endpoint.vfName)
-		// disable SRIOV when last endpoint is getting deleted
-		log.Debugf("DeleteEndpoint  vfDev list length -------------: [ %+d ]", len(nw.sriovState.vfDevList))
-		if len(nw.sriovState.vfDevList) == nw.sriovState.discoveredVFCount {
-			d.disableSRIOV(nw)
-		}
-	} 
+	nw := d.networks[r.NetworkID]
 
-	delete(nw.ndevEndpoints, r.EndpointID)
+	nw.DeleteEndpoint(endpoint)
+	delete(genNw.ndevEndpoints, r.EndpointID)
 	return nil
 }
 
@@ -510,11 +394,211 @@ func (d *driver) RevokeExternalConnectivity(r *network.RevokeExternalConnectivit
 	return nil
 }
 
-func (d *driver) getNetworkByGateway(gateway string) *ptNetwork {
+func (d *driver) getNetworkByGateway(gateway string) error {
 	for _, nw := range d.networks {
-		if nw.IPv4Data.Gateway == gateway {
-			return nw
+		genNw := nw.getGenNw()
+		if genNw == nil {
+			continue
+		}
+		if genNw.IPv4Data.Gateway == gateway {
+			return fmt.Errorf("nw with same gateway exist %s", gateway)
 		}
 	}
 	return nil
 }
+
+func (pt *ptNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
+				   nid string, ndevName string,
+				   networkMode string,
+				   ipv4Data *network.IPAMData) error {
+	var err error
+
+	err = d.getNetworkByGateway(ipv4Data.Gateway)
+	if err != nil {
+		return err
+	}
+	pt.genNw = genNw
+
+	log.Debugf("PT CreateNetwork : [%s] IPv4Data : [ %+v ]\n", pt.genNw.id, pt.genNw.IPv4Data)
+	return nil
+}
+
+func (nw *ptNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
+	if len(nw.genNw.ndevEndpoints) > 0 {
+		return nil, fmt.Errorf("supports only one device")
+	}
+
+	ndev := &ptEndpoint {
+		devName:	nw.genNw.ndevName,
+		Address:	r.Interface.Address,
+	}
+	nw.genNw.ndevEndpoints[r.EndpointID] = ndev
+
+	endpointInterface := &network.EndpointInterface{}
+	if r.Interface.Address == "" {
+		endpointInterface.Address = ndev.Address
+	}
+	if r.Interface.MacAddress == "" {
+		//endpointInterface.MacAddress = ndev.HardwareAddr
+	}
+	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
+	log.Debugf("PT CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
+	return resp, nil
+}
+
+func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
+			       nid string, ndevName string,
+			       networkMode string,
+			       ipv4Data *network.IPAMData) error {
+	var curVFs int
+	var err error
+
+	err = d.getNetworkByGateway(ipv4Data.Gateway)
+	if err != nil {
+		return err
+	}
+
+	nw.genNw = genNw
+
+	nw.maxVFCount, err = netdevGetMaxVFCount(ndevName)
+	if err != nil {
+		return err
+	}
+	curVFs, err = netdevGetEnabledVFCount(ndevName)
+	if err != nil {
+		return err
+	}
+	if curVFs != 0 {
+		nw.state = SRIOV_ENABLED
+	} else {
+		nw.state = SRIOV_DISABLED
+	}
+
+	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
+	return nil
+}
+
+
+func (nw *sriovNetwork) disableSRIOV() {
+	netdevDisableSRIOV(nw.genNw.ndevName)
+	nw.state = SRIOV_DISABLED
+	nw.vfDevList = nil
+	nw.discoveredVFCount = 0
+}
+
+func (nw *sriovNetwork) DiscoverVFs() (error) {
+	var err error
+
+	if nw.state == SRIOV_DISABLED {
+		err = netdevEnableSRIOV(nw.genNw.ndevName)
+		if err != nil {
+			return err
+		}
+		nw.state = SRIOV_ENABLED
+	}
+
+	// if we haven't discovered VFs yet, try to discover
+	if nw.discoveredVFCount == 0 {
+		nw.vfDevList, err = vfDevList(nw.genNw.ndevName)
+		if err != nil {
+			nw.disableSRIOV()
+			return err
+		}
+		nw.discoveredVFCount = len(nw.vfDevList)
+	}
+
+	log.Debugf("DiscoverVF vfDev list length : [%d %d]",
+		   len(nw.vfDevList), nw.discoveredVFCount)
+	return nil
+}
+
+func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
+	var allocatedDev string
+	var vfNetdevName string
+
+	if len(nw.vfDevList) == 0 {
+		return "", ""
+	}
+
+	// fetch the last element
+	allocatedDev = nw.vfDevList[len(nw.vfDevList) - 1]
+
+	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
+	if vfNetdevName == "" {
+		return "", ""
+	}
+
+	pciDevName := vfPCIDevNameFromVfDir(parentNetdev, allocatedDev)
+	if pciDevName != "" {
+		SetVFDefaultMacAddress(parentNetdev, allocatedDev, vfNetdevName)
+		unbindVF(parentNetdev, pciDevName)
+		bindVF(parentNetdev, pciDevName)
+	}
+
+	/* get the new name, as this name can change after unbind-bind sequence */
+	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
+	if vfNetdevName == "" {
+		return "", ""
+	}
+
+	nw.vfDevList = nw.vfDevList[:len(nw.vfDevList) - 1]
+
+	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v, len %v",
+		   parentNetdev, allocatedDev, vfNetdevName, len(nw.vfDevList))
+	return allocatedDev, vfNetdevName
+}
+
+func (nw *sriovNetwork) FreeVF(name string) {
+	log.Debugf("FreeVF %v", name)
+	nw.vfDevList = append(nw.vfDevList, name)
+}
+
+func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
+	var netdevName string
+	var vfName string
+	var err error
+
+	err = nw.DiscoverVFs()
+	if err != nil {
+		return nil, err
+	}
+
+	vfName, netdevName = nw.AllocVF(nw.genNw.ndevName)
+	if netdevName == "" {
+		return nil, fmt.Errorf("All devices in use [ %s ].", r.NetworkID)
+	}
+	ndev := &ptEndpoint {
+		devName: netdevName,
+		vfName: vfName,
+		Address: r.Interface.Address,
+	}
+	nw.genNw.ndevEndpoints[r.EndpointID] = ndev
+
+	endpointInterface := &network.EndpointInterface{}
+	if r.Interface.Address == "" {
+		endpointInterface.Address = ndev.Address
+	}
+	if r.Interface.MacAddress == "" {
+		//endpointInterface.MacAddress = ndev.HardwareAddr
+	}
+	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
+
+	log.Debugf("SRIOV CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
+	return resp, nil
+}
+
+func (nw *ptNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
+
+}
+
+func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
+
+	nw.FreeVF(endpoint.vfName)
+	// disable SRIOV when last endpoint is getting deleted
+	log.Debugf("DeleteEndpoint  vfDev list length -------------: [ %+d ]", len(nw.vfDevList))
+	if len(nw.vfDevList) == nw.discoveredVFCount {
+		nw.disableSRIOV()
+	}
+}
+
+
