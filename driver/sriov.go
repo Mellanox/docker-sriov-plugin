@@ -19,6 +19,7 @@ type sriovDevice struct {
 	vfDevList		[]string
 	maxVFCount		int
 	state			string
+	nwUseRefCount			int
 }
 
 type sriovNetwork struct {
@@ -36,9 +37,13 @@ var networks	map[string]*sriovNetwork
 // value = its sriov state/information
 var sriovDevices	map[string]*sriovDevice
 
-func checkVlanNwExist(vlan int) bool {
+func checkVlanNwExist(ndevName string, vlan int) bool {
+	if vlan == 0 {
+		return false
+	}
+
 	for _, nw := range networks {
-		if vlan != 0 && nw.vlan == vlan {
+		if nw.vlan == vlan && nw.genNw.ndevName == ndevName {
 			return true
 		}
 	}
@@ -62,7 +67,7 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		if vlan > 4095 {
 			return fmt.Errorf("vlan id out of range")
 		}
-		if checkVlanNwExist(vlan) {
+		if checkVlanNwExist(ndevName, vlan) {
 			return fmt.Errorf("vlan already exist")
 		}
 	}
@@ -79,6 +84,8 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	}
 	networks[nid] = nw
 
+	dev := sriovDevices[ndevName]
+	dev.nwUseRefCount++
 	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
 }
@@ -233,10 +240,14 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
 	delete(networks, nw.genNw.id)
+
+	dev := sriovDevices[nw.genNw.ndevName]
+	dev.nwUseRefCount--
+
 	// multiple vlan based network will share enabled VFs.
 	// So first created network enables SRIOV and
 	// Last network that gets deleted, disables SRIOV.
-	if len(networks) == 0 {
+	if dev.nwUseRefCount == 0 {
 		disableSRIOV(nw.genNw.ndevName)
 		delete(sriovDevices, nw.genNw.ndevName)
 	}
