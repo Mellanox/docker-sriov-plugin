@@ -24,6 +24,17 @@ type sriovNetwork struct {
 	vlan			int
 }
 
+var networks	map[string]*sriovNetwork
+
+func checkVlanNwExist(vlan int) bool {
+	for _, nw := range networks {
+		if vlan != 0 && nw.vlan == vlan {
+			return true
+		}
+	}
+	return false
+}
+
 func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 			       nid string, options map[string]string,
 			       ipv4Data *network.IPAMData) error {
@@ -41,6 +52,9 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		vlan, _ = strconv.Atoi(options[sriovVlan])
 		if vlan > 4095 {
 			return fmt.Errorf("vlan id out of range")
+		}
+		if checkVlanNwExist(vlan) {
+			return fmt.Errorf("vlan already exist")
 		}
 	}
 	nw.genNw = genNw
@@ -65,6 +79,10 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	}
 	// store vlan so that when VFs are attached to container, vlan will be set at that time
 	nw.vlan = vlan
+	if len(networks) == 0 {
+		networks = make(map[string]*sriovNetwork)
+	}
+	networks[nid] = nw
 
 	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
@@ -183,4 +201,6 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
 	nw.disableSRIOV()
+	delete(networks, nw.genNw.id)
+	log.Debugf("DeleteNetwork: total networks = %d", len(networks))
 }
