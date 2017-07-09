@@ -200,7 +200,12 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 }
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
-	nw.disableSRIOV()
 	delete(networks, nw.genNw.id)
+	// multiple vlan based network will share enabled VFs.
+	// So first created network enables SRIOV and
+	// Last network that gets deleted, disables SRIOV.
+	if len(networks) == 0 {
+		nw.disableSRIOV()
+	}
 	log.Debugf("DeleteNetwork: total networks = %d", len(networks))
 }
