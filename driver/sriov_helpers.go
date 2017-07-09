@@ -187,3 +187,17 @@ func SetVFDefaultMacAddress(parentNetdev string, vfDir string, vfNetdevName stri
 	err2 := netlink.LinkSetVfHardwareAddr(parentHandle, vfIndex, ethAttr.HardwareAddr)
 	return err2
 }
+
+func SetVFVlan(parentNetdev string, vfDir string, vlan int) (error) {
+
+	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
+	vfIndex, _ := strconv.Atoi(vfIndexStr)
+
+	parentHandle, err1 := netlink.LinkByName(parentNetdev)
+	if err1 != nil {
+		return err1
+	}
+
+	err2 := netlink.LinkSetVfVlan(parentHandle, vfIndex, vlan)
+	return err2
+}
