@@ -14,6 +14,14 @@ const (
 	sriovUnsupported = "unsupported"
 )
 
+type sriovNetwork struct {
+	genNw			*genericNetwork
+	vfDevList		[]string
+	discoveredVFCount	int
+	maxVFCount		int
+	state			string
+}
+
 func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 			       nid string, ndevName string,
 			       networkMode string,

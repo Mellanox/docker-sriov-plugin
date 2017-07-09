@@ -50,14 +50,6 @@ type ptNetwork struct {
 	genNw		*genericNetwork
 }
 
-type sriovNetwork struct {
-	genNw			*genericNetwork
-	vfDevList		[]string
-	discoveredVFCount	int
-	maxVFCount		int
-	state			string
-}
-
 type NwIface interface {
 	CreateNetwork(d *driver, genNw *genericNetwork,
 				   nid string, ndevName string,
