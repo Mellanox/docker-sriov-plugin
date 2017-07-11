@@ -80,6 +80,33 @@ $ docker run --net=mynet -itd --name=web nginx
 
 ```
 
+**4.3** Multi tenant support in SRIOV mode
+
+There might be a need to isolate containers to groups/tenants.
+This plugin allows to create vlan based layer 2 networks.
+Every new container started in a particular network is isolated from other network.
+Below two commands creates two networks.
+Each network is identified with vlan. vlan usage is completely transparent to running container applications.
+customer1 has vlan 100.
+customer2 has vlan 200.
+All containers created in customer1 belong to vlan 100 and cannot talk to containers running in customer2 network which is in vlan 200.
+
+```
+$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 customer1
+```
+
+```
+$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=200 customer2
+```
+
+```
+$ docker run --net=customer1 -itd --name=web nginx
+```
+
+```
+$ docker run --net=customer2 -itd --name=web nginx
+```
+
 **5.** Test it out Passthrough mode
 
 **5.1** Now you are ready to create a new network
