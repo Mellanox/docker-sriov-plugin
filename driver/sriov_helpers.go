@@ -200,3 +200,13 @@ func SetVFVlan(parentNetdev string, vfDir string, vlan int) (error) {
 	err2 := netlink.LinkSetVfVlan(parentHandle, vfIndex, vlan)
 	return err2
 }
+
+func SetPFLinkUp(parentNetdev string) (error) {
+	parentHandle, err1 := netlink.LinkByName(parentNetdev)
+	if err1 != nil {
+		return err1
+	}
+
+	err2 := netlink.LinkSetUp(parentHandle)
+	return err2
+}

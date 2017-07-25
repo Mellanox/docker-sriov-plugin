@@ -19,7 +19,7 @@ type sriovDevice struct {
 	vfDevList		[]string
 	maxVFCount		int
 	state			string
-	nwUseRefCount			int
+	nwUseRefCount		int
 }
 
 type sriovNetwork struct {
@@ -72,6 +72,11 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		}
 	}
 	nw.genNw = genNw
+
+	err = SetPFLinkUp(ndevName)
+	if err != nil {
+		return err
+	}
 
 	err = nw.DiscoverVFs(ndevName)
 	if err != nil {
