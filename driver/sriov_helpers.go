@@ -2,26 +2,26 @@ package driver
 
 import (
 	"fmt"
-	"path/filepath"
-	"os"
 	"github.com/vishvananda/netlink"
-	"strings"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 const (
-	netSysDir = "/sys/class/net"
-	netDevPrefix = "device"
-	netdevDriverDir = "device/driver"
+	netSysDir        = "/sys/class/net"
+	netDevPrefix     = "device"
+	netdevDriverDir  = "device/driver"
 	netdevUnbindFile = "unbind"
-	netdevBindFile = "bind"
+	netdevBindFile   = "bind"
 
-	netDevMaxVFCountFile = "sriov_totalvfs"
+	netDevMaxVFCountFile     = "sriov_totalvfs"
 	netDevCurrentVFCountFile = "sriov_numvfs"
-	netDevVFDevicePrefix = "virtfn"
+	netDevVFDevicePrefix     = "virtfn"
 )
 
-func netDevDeviceDir(netDevName string) (string) {
+func netDevDeviceDir(netDevName string) string {
 	devDirName := netSysDir + "/" + netDevName + "/" + netDevPrefix
 	return devDirName
 }
@@ -29,9 +29,9 @@ func netDevDeviceDir(netDevName string) (string) {
 func netdevGetMaxVFCount(name string) (int, error) {
 	devDirName := netDevDeviceDir(name)
 
-	maxDevFile := fileObject {
-				Path: devDirName + "/" + netDevMaxVFCountFile,
-		       }
+	maxDevFile := fileObject{
+		Path: devDirName + "/" + netDevMaxVFCountFile,
+	}
 
 	maxVfs, err := maxDevFile.ReadInt()
 	if err != nil {
@@ -42,12 +42,12 @@ func netdevGetMaxVFCount(name string) (int, error) {
 	}
 }
 
-func netdevSetMaxVFCount(name string, maxVFs int) (error) {
+func netdevSetMaxVFCount(name string, maxVFs int) error {
 	devDirName := netDevDeviceDir(name)
 
-	maxDevFile := fileObject {
-				Path: devDirName + "/" + netDevCurrentVFCountFile,
-		       }
+	maxDevFile := fileObject{
+		Path: devDirName + "/" + netDevCurrentVFCountFile,
+	}
 
 	return maxDevFile.WriteInt(maxVFs)
 }
@@ -55,9 +55,9 @@ func netdevSetMaxVFCount(name string, maxVFs int) (error) {
 func netdevGetEnabledVFCount(name string) (int, error) {
 	devDirName := netDevDeviceDir(name)
 
-	maxDevFile := fileObject {
-				Path: devDirName + "/" + netDevCurrentVFCountFile,
-		       }
+	maxDevFile := fileObject{
+		Path: devDirName + "/" + netDevCurrentVFCountFile,
+	}
 
 	curVfs, err := maxDevFile.ReadInt()
 	if err != nil {
@@ -68,7 +68,7 @@ func netdevGetEnabledVFCount(name string) (int, error) {
 	}
 }
 
-func netdevEnableSRIOV(name string) (error) {
+func netdevEnableSRIOV(name string) error {
 	var maxVFCount int
 	var err error
 
@@ -86,14 +86,14 @@ func netdevEnableSRIOV(name string) (error) {
 	}
 
 	if maxVFCount != 0 {
-		return netdevSetMaxVFCount(name, maxVFCount)	
+		return netdevSetMaxVFCount(name, maxVFCount)
 	} else {
 		return fmt.Errorf("sriov unsupported")
 		return nil
 	}
 }
 
-func netdevDisableSRIOV(name string) (error) {
+func netdevDisableSRIOV(name string) error {
 	devDirName := netDevDeviceDir(name)
 
 	devExist := dirExists(devDirName)
@@ -101,14 +101,14 @@ func netdevDisableSRIOV(name string) (error) {
 		return fmt.Errorf("device not found")
 	}
 
-	return netdevSetMaxVFCount(name, 0)	
+	return netdevSetMaxVFCount(name, 0)
 }
 
-func vfNetdevNameFromParent(parentNetdev string, vfDir string) (string) {
+func vfNetdevNameFromParent(parentNetdev string, vfDir string) string {
 
 	devDirName := netDevDeviceDir(parentNetdev)
 
-	vfNetdev, _ := lsFilesWithPrefix(devDirName + "/" + vfDir + "/" + "net", "", false)
+	vfNetdev, _ := lsFilesWithPrefix(devDirName+"/"+vfDir+"/"+"net", "", false)
 	if len(vfNetdev) <= 0 {
 		return ""
 	} else {
@@ -116,35 +116,35 @@ func vfNetdevNameFromParent(parentNetdev string, vfDir string) (string) {
 	}
 }
 
-func vfPCIDevNameFromVfDir(parentNetdev string, vfDir string) (string) {
-	link := filepath.Join(netSysDir, parentNetdev, netDevPrefix, vfDir) 
+func vfPCIDevNameFromVfDir(parentNetdev string, vfDir string) string {
+	link := filepath.Join(netSysDir, parentNetdev, netDevPrefix, vfDir)
 	pciDevDir, err := os.Readlink(link)
 	if err != nil {
 		return ""
 	}
-	if (len(pciDevDir) <=3) {
+	if len(pciDevDir) <= 3 {
 		return ""
 	}
 
 	return pciDevDir[3:len(pciDevDir)]
 }
 
-func unbindVF(parentNetdev string, vfPCIDevName string) (error) {
-	cmdFile := filepath.Join(netSysDir, parentNetdev, netdevDriverDir, netdevUnbindFile) 
+func unbindVF(parentNetdev string, vfPCIDevName string) error {
+	cmdFile := filepath.Join(netSysDir, parentNetdev, netdevDriverDir, netdevUnbindFile)
 
-	cmdFileObj := fileObject {
-				Path: cmdFile,
-		       }
+	cmdFileObj := fileObject{
+		Path: cmdFile,
+	}
 
 	return cmdFileObj.Write(vfPCIDevName)
 }
 
-func bindVF(parentNetdev string, vfPCIDevName string) (error) {
-	cmdFile := filepath.Join(netSysDir, parentNetdev, netdevDriverDir, netdevBindFile) 
+func bindVF(parentNetdev string, vfPCIDevName string) error {
+	cmdFile := filepath.Join(netSysDir, parentNetdev, netdevDriverDir, netdevBindFile)
 
-	cmdFileObj := fileObject {
-				Path: cmdFile,
-		       }
+	cmdFileObj := fileObject{
+		Path: cmdFile,
+	}
 
 	return cmdFileObj.Write(vfPCIDevName)
 }
@@ -156,7 +156,7 @@ func vfDevList(name string) ([]string, error) {
 
 	virtFnDirs, err := lsFilesWithPrefix(devDirName, netDevVFDevicePrefix, true)
 
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 
@@ -168,7 +168,7 @@ func vfDevList(name string) ([]string, error) {
 	return vfDirList, nil
 }
 
-func SetVFDefaultMacAddress(parentNetdev string, vfDir string, vfNetdevName string) (error) {
+func SetVFDefaultMacAddress(parentNetdev string, vfDir string, vfNetdevName string) error {
 
 	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
 	vfIndex, _ := strconv.Atoi(vfIndexStr)
@@ -187,7 +187,7 @@ func SetVFDefaultMacAddress(parentNetdev string, vfDir string, vfNetdevName stri
 	return err2
 }
 
-func SetVFVlan(parentNetdev string, vfDir string, vlan int) (error) {
+func SetVFVlan(parentNetdev string, vfDir string, vlan int) error {
 
 	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
 	vfIndex, _ := strconv.Atoi(vfIndexStr)
@@ -201,7 +201,7 @@ func SetVFVlan(parentNetdev string, vfDir string, vlan int) (error) {
 	return err2
 }
 
-func SetPFLinkUp(parentNetdev string) (error) {
+func SetPFLinkUp(parentNetdev string) error {
 	parentHandle, err1 := netlink.LinkByName(parentNetdev)
 	if err1 != nil {
 		return err1

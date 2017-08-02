@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
+	"os"
 
 	"github.com/gopher-net/docker-passthrough-plugin/driver"
 )
@@ -35,7 +35,7 @@ func Run(ctx *cli.Context) {
 
 func main() {
 
-	var flagDebug = cli.BoolFlag {
+	var flagDebug = cli.BoolFlag{
 		Name:  "debug, d",
 		Usage: "enable debugging",
 	}
@@ -43,7 +43,7 @@ func main() {
 	app.Name = "passthrough"
 	app.Usage = "Docker Networking using Passthrough/SRIOV netdevices"
 	app.Version = version
-	app.Flags = []cli.Flag {
+	app.Flags = []cli.Flag{
 		flagDebug,
 	}
 	app.Action = Run

@@ -114,7 +114,7 @@ func lsFilesWithPrefix(dir string, filePrefix string, ignoreDir bool) ([]string,
 		}
 
 		if filePrefix == "" ||
-		   strings.Contains(fileInfos[i].Name(), filePrefix) {
+			strings.Contains(fileInfos[i].Name(), filePrefix) {
 			desiredFiles = append(desiredFiles, fileInfos[i].Name())
 		}
 	}

@@ -10,32 +10,32 @@ import (
 )
 
 const (
-	SRIOV_ENABLED	= "enabled"
-	SRIOV_DISABLED	= "disabled"
+	SRIOV_ENABLED    = "enabled"
+	SRIOV_DISABLED   = "disabled"
 	sriovUnsupported = "unsupported"
 )
 
 type sriovDevice struct {
-	vfDevList		[]string
-	maxVFCount		int
-	state			string
-	nwUseRefCount		int
+	vfDevList     []string
+	maxVFCount    int
+	state         string
+	nwUseRefCount int
 }
 
 type sriovNetwork struct {
-	genNw		*genericNetwork
-	vlan		int
+	genNw *genericNetwork
+	vlan  int
 }
 
 // nid to network map
 // key = nid
 // value = sriovNetwork
-var networks	map[string]*sriovNetwork
+var networks map[string]*sriovNetwork
 
 // netdevice to sriovstate map
 // key = phy netdevice
 // value = its sriov state/information
-var sriovDevices	map[string]*sriovDevice
+var sriovDevices map[string]*sriovDevice
 
 func checkVlanNwExist(ndevName string, vlan int) bool {
 	if vlan == 0 {
@@ -51,8 +51,8 @@ func checkVlanNwExist(ndevName string, vlan int) bool {
 }
 
 func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
-			       nid string, options map[string]string,
-			       ipv4Data *network.IPAMData) error {
+	nid string, options map[string]string,
+	ipv4Data *network.IPAMData) error {
 	var err error
 	var vlan int
 
@@ -103,7 +103,7 @@ func disableSRIOV(ndevName string) {
 	dev.vfDevList = nil
 }
 
-func initSriovState(ndevName string, dev *sriovDevice) (error) {
+func initSriovState(ndevName string, dev *sriovDevice) error {
 	var err error
 	var curVFs int
 
@@ -140,7 +140,7 @@ func initSriovState(ndevName string, dev *sriovDevice) (error) {
 	return nil
 }
 
-func (nw *sriovNetwork) DiscoverVFs(ndevName string) (error) {
+func (nw *sriovNetwork) DiscoverVFs(ndevName string) error {
 	var err error
 
 	if len(sriovDevices) == 0 {
@@ -149,7 +149,7 @@ func (nw *sriovNetwork) DiscoverVFs(ndevName string) (error) {
 
 	dev := sriovDevices[ndevName]
 	if dev == nil {
-		newDev := sriovDevice { }
+		newDev := sriovDevice{}
 		err = initSriovState(ndevName, &newDev)
 		if err != nil {
 			return err
@@ -158,7 +158,7 @@ func (nw *sriovNetwork) DiscoverVFs(ndevName string) (error) {
 		dev = &newDev
 	}
 	log.Debugf("DiscoverVF vfDev list length : [%d]",
-		   len(dev.vfDevList))
+		len(dev.vfDevList))
 	return nil
 }
 
@@ -172,7 +172,7 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 	}
 
 	// fetch the last element
-	allocatedDev = dev.vfDevList[len(dev.vfDevList) - 1]
+	allocatedDev = dev.vfDevList[len(dev.vfDevList)-1]
 
 	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
 	if vfNetdevName == "" {
@@ -195,10 +195,10 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 		return "", ""
 	}
 
-	dev.vfDevList = dev.vfDevList[:len(dev.vfDevList) - 1]
+	dev.vfDevList = dev.vfDevList[:len(dev.vfDevList)-1]
 
 	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v, len %v",
-		   parentNetdev, allocatedDev, vfNetdevName, len(dev.vfDevList))
+		parentNetdev, allocatedDev, vfNetdevName, len(dev.vfDevList))
 	return allocatedDev, vfNetdevName
 }
 
@@ -215,9 +215,9 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	if netdevName == "" {
 		return nil, fmt.Errorf("All devices in use [ %s ].", r.NetworkID)
 	}
-	ndev := &ptEndpoint {
+	ndev := &ptEndpoint{
 		devName: netdevName,
-		vfName: vfName,
+		vfName:  vfName,
 		Address: r.Interface.Address,
 	}
 	nw.genNw.ndevEndpoints[r.EndpointID] = ndev

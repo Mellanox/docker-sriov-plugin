@@ -3,8 +3,8 @@ package driver
 import (
 	"fmt"
 	"net"
-	"sync"
 	"reflect"
+	"sync"
 
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/docker/libnetwork/netlabel"
@@ -14,47 +14,47 @@ import (
 )
 
 const (
-	containerVethPrefix	= "eth"
-	networkDevice		= "netdevice"   // netdevice interface -o netdevice
+	containerVethPrefix = "eth"
+	networkDevice       = "netdevice" // netdevice interface -o netdevice
 
-	networkMode		= "mode"
-	networkModePT		= "passthrough"
-	networkModeSRIOV	= "sriov"
-	sriovVlan		= "vlan"
+	networkMode      = "mode"
+	networkModePT    = "passthrough"
+	networkModeSRIOV = "sriov"
+	sriovVlan        = "vlan"
 )
 
 type ptEndpoint struct {
 	/* key */
-	id		string
+	id string
 
 	/* value */
-	HardwareAddr	string
-	devName		string
-	mtu		int
-	Address		string
-	sandboxKey	string
-	vfName		string
+	HardwareAddr string
+	devName      string
+	mtu          int
+	Address      string
+	sandboxKey   string
+	vfName       string
 }
 
 type genericNetwork struct {
-	id		string
-	lock		sync.Mutex
-	IPv4Data	*network.IPAMData
-	ndevEndpoints	map[string]*ptEndpoint
-	driver		*driver // The network's driver
-	mode		string	// SRIOV or Passthough
+	id            string
+	lock          sync.Mutex
+	IPv4Data      *network.IPAMData
+	ndevEndpoints map[string]*ptEndpoint
+	driver        *driver // The network's driver
+	mode          string  // SRIOV or Passthough
 
-	ndevName	string
+	ndevName string
 }
 
 type ptNetwork struct {
-	genNw		*genericNetwork
+	genNw *genericNetwork
 }
 
 type NwIface interface {
 	CreateNetwork(d *driver, genNw *genericNetwork,
-				   nid string, options map[string]string,
-				   ipv4Data *network.IPAMData) error
+		nid string, options map[string]string,
+		ipv4Data *network.IPAMData) error
 	DeleteNetwork(d *driver, req *network.DeleteNetworkRequest)
 
 	CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error)
@@ -65,14 +65,14 @@ type NwIface interface {
 
 type driver struct {
 	// below map maps a network id to NwInterface object
-	networks	map[string]NwIface
+	networks map[string]NwIface
 	sync.Mutex
 }
 
 func createGenNw(nid string, ndevName string,
-		 networkMode string, ipv4Data *network.IPAMData) *genericNetwork {
+	networkMode string, ipv4Data *network.IPAMData) *genericNetwork {
 
-	genNw := genericNetwork { }
+	genNw := genericNetwork{}
 	ndevs := map[string]*ptEndpoint{}
 	genNw.id = nid
 	genNw.mode = networkMode
@@ -88,12 +88,12 @@ func (d *driver) GetCapabilities() (*network.CapabilitiesResponse, error) {
 
 // parseNetworkGenericOptions parses generic driver docker network options
 func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
-	var err	error
+	var err error
 
 	options := make(map[string]string)
 
 	switch opt := data.(type) {
-	case map[string]interface {}:
+	case map[string]interface{}:
 		for key, value := range opt {
 			switch key {
 			case networkDevice:
@@ -113,8 +113,8 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 		// default to passthrough
 		options[networkMode] = networkModePT
 	} else {
-		if (options[networkMode] != networkModePT &&
-		    options[networkMode] != networkModeSRIOV) {
+		if options[networkMode] != networkModePT &&
+			options[networkMode] != networkModeSRIOV {
 			return options, fmt.Errorf("valid modes are: passthrough and sriov")
 		}
 	}
@@ -160,18 +160,18 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 	}
 
 	ipv4Data := req.IPv4Data[0]
-	
+
 	genNw := createGenNw(req.NetworkID, options[networkDevice], options[networkMode], ipv4Data)
 
 	if options[networkMode] == "passthrough" {
-		nw := ptNetwork { }
+		nw := ptNetwork{}
 		err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
 		if err != nil {
 			return err
 		}
 		d.networks[req.NetworkID] = &nw
 	} else {
-		nw := sriovNetwork { }
+		nw := sriovNetwork{}
 		err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
 		if err != nil {
 			return err
@@ -216,7 +216,7 @@ func StartDriver() (*driver, error) {
 	//dnetworks := make(map[string]interface{})
 	dnetworks := make(map[string]NwIface)
 
-	driver := &driver {
+	driver := &driver{
 		networks: dnetworks,
 	}
 	return driver, nil
@@ -307,10 +307,10 @@ func (d *driver) Join(r *network.JoinRequest) (*network.JoinResponse, error) {
 	}
 	endpoint.sandboxKey = r.SandboxKey
 	resp := network.JoinResponse{
-		InterfaceName:         network.InterfaceName {
-						SrcName: endpoint.devName,
-						DstPrefix: containerVethPrefix,
-					},
+		InterfaceName: network.InterfaceName{
+			SrcName:   endpoint.devName,
+			DstPrefix: containerVethPrefix,
+		},
 		DisableGatewayService: false,
 		Gateway:               gw.String(),
 	}
@@ -395,8 +395,8 @@ func (d *driver) getNetworkByGateway(gateway string) error {
 }
 
 func (pt *ptNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
-				   nid string, options map[string]string,
-				   ipv4Data *network.IPAMData) error {
+	nid string, options map[string]string,
+	ipv4Data *network.IPAMData) error {
 	var err error
 
 	err = d.getNetworkByGateway(ipv4Data.Gateway)
@@ -418,9 +418,9 @@ func (nw *ptNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.
 		return nil, fmt.Errorf("supports only one device")
 	}
 
-	ndev := &ptEndpoint {
-		devName:	nw.genNw.ndevName,
-		Address:	r.Interface.Address,
+	ndev := &ptEndpoint{
+		devName: nw.genNw.ndevName,
+		Address: r.Interface.Address,
 	}
 	nw.genNw.ndevEndpoints[r.EndpointID] = ndev
 
