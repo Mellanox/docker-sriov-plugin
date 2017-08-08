@@ -201,6 +201,33 @@ func SetVFVlan(parentNetdev string, vfDir string, vlan int) error {
 	return err2
 }
 
+func SetVFPrivileged(parentNetdev string, vfDir string, privileged bool) error {
+
+	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
+	vfIndex, _ := strconv.Atoi(vfIndexStr)
+	var spoofChk bool
+	var trusted bool
+
+	if privileged {
+		spoofChk = false
+		trusted = true
+	} else {
+		spoofChk = true
+		trusted = false
+	}
+
+	parentHandle, err := netlink.LinkByName(parentNetdev)
+	if err != nil {
+		return err
+	}
+	/* do not check for error status as older kernels doesn't
+	 * have support for it.
+	 */
+	netlink.LinkSetVfTrust(parentHandle, vfIndex, trusted)
+	netlink.LinkSetVfSpoofchk(parentHandle, vfIndex, spoofChk)
+	return err
+}
+
 func SetPFLinkUp(parentNetdev string) error {
 	parentHandle, err1 := netlink.LinkByName(parentNetdev)
 	if err1 != nil {

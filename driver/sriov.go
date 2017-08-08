@@ -185,6 +185,11 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 		if nw.vlan > 0 {
 			SetVFVlan(parentNetdev, allocatedDev, nw.vlan)
 		}
+
+		err := SetVFPrivileged(parentNetdev, allocatedDev, false)
+		if err != nil {
+			return "", ""
+		}
 		unbindVF(parentNetdev, pciDevName)
 		bindVF(parentNetdev, pciDevName)
 	}
