@@ -26,6 +26,10 @@ func Run(ctx *cli.Context) {
 		panic(err)
 	}
 	h := network.NewHandler(d)
+
+	log.Debugf("Mellanox passthrough/sriov plugin started.")
+	log.Debugf("Ready to accept commands.")
+
 	err = h.ServeUnix("passthrough", 0)
 	if err != nil {
 		log.Fatal("Run app error: %s", err.Error())
