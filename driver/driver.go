@@ -17,10 +17,11 @@ const (
 	containerVethPrefix = "eth"
 	networkDevice       = "netdevice" // netdevice interface -o netdevice
 
-	networkMode      = "mode"
-	networkModePT    = "passthrough"
-	networkModeSRIOV = "sriov"
-	sriovVlan        = "vlan"
+	networkMode       = "mode"
+	networkModePT     = "passthrough"
+	networkModeSRIOV  = "sriov"
+	sriovVlan         = "vlan"
+	networkPrivileged = "privileged"
 )
 
 type ptEndpoint struct {
@@ -101,6 +102,8 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 			case networkMode:
 				options[key] = fmt.Sprintf("%s", value)
 			case sriovVlan:
+				options[key] = fmt.Sprintf("%s", value)
+			case networkPrivileged:
 				options[key] = fmt.Sprintf("%s", value)
 			}
 		}

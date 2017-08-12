@@ -25,6 +25,7 @@ type sriovDevice struct {
 type sriovNetwork struct {
 	genNw *genericNetwork
 	vlan  int
+	privileged int
 }
 
 // nid to network map
@@ -55,6 +56,7 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	ipv4Data *network.IPAMData) error {
 	var err error
 	var vlan int
+	var privileged int
 
 	ndevName := options[networkDevice]
 	err = d.getNetworkByGateway(ipv4Data.Gateway)
@@ -71,6 +73,11 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 			return fmt.Errorf("vlan already exist")
 		}
 	}
+	if options[networkPrivileged] != "" {
+		privileged, _ = strconv.Atoi(options[networkPrivileged])
+	}
+	nw.privileged = privileged
+
 	nw.genNw = genNw
 
 	err = SetPFLinkUp(ndevName)
@@ -165,6 +172,13 @@ func (nw *sriovNetwork) DiscoverVFs(ndevName string) error {
 func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 	var allocatedDev string
 	var vfNetdevName string
+	var privileged bool
+
+	if nw.privileged > 0 {
+		privileged = true
+	} else {
+		privileged = false
+	}
 
 	dev := sriovDevices[parentNetdev]
 	if len(dev.vfDevList) == 0 {
@@ -186,7 +200,7 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 			SetVFVlan(parentNetdev, allocatedDev, nw.vlan)
 		}
 
-		err := SetVFPrivileged(parentNetdev, allocatedDev, false)
+		err := SetVFPrivileged(parentNetdev, allocatedDev, privileged)
 		if err != nil {
 			return "", ""
 		}
