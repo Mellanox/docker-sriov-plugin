@@ -149,7 +149,7 @@ func bindVF(parentNetdev string, vfPCIDevName string) error {
 	return cmdFileObj.Write(vfPCIDevName)
 }
 
-func vfDevList(name string) ([]string, error) {
+func GetVfPciDevList(name string) ([]string, error) {
 	var vfDirList []string
 	var i int
 	devDirName := netDevDeviceDir(name)

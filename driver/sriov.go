@@ -16,15 +16,15 @@ const (
 )
 
 type sriovDevice struct {
-	vfDevList     []string
+	pciVfDevList  []string
 	maxVFCount    int
 	state         string
 	nwUseRefCount int
 }
 
 type sriovNetwork struct {
-	genNw *genericNetwork
-	vlan  int
+	genNw      *genericNetwork
+	vlan       int
 	privileged int
 }
 
@@ -107,7 +107,7 @@ func disableSRIOV(ndevName string) {
 	netdevDisableSRIOV(ndevName)
 	dev := sriovDevices[ndevName]
 	dev.state = SRIOV_DISABLED
-	dev.vfDevList = nil
+	dev.pciVfDevList = nil
 }
 
 func initSriovState(ndevName string, dev *sriovDevice) error {
@@ -137,8 +137,8 @@ func initSriovState(ndevName string, dev *sriovDevice) error {
 	}
 
 	// if we haven't discovered VFs yet, try to discover
-	if len(dev.vfDevList) == 0 {
-		dev.vfDevList, err = vfDevList(ndevName)
+	if len(dev.pciVfDevList) == 0 {
+		dev.pciVfDevList, err = GetVfPciDevList(ndevName)
 		if err != nil {
 			disableSRIOV(ndevName)
 			return err
@@ -165,7 +165,7 @@ func (nw *sriovNetwork) DiscoverVFs(ndevName string) error {
 		dev = &newDev
 	}
 	log.Debugf("DiscoverVF vfDev list length : [%d]",
-		len(dev.vfDevList))
+		len(dev.pciVfDevList))
 	return nil
 }
 
@@ -181,12 +181,12 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 	}
 
 	dev := sriovDevices[parentNetdev]
-	if len(dev.vfDevList) == 0 {
+	if len(dev.pciVfDevList) == 0 {
 		return "", ""
 	}
 
 	// fetch the last element
-	allocatedDev = dev.vfDevList[len(dev.vfDevList)-1]
+	allocatedDev = dev.pciVfDevList[len(dev.pciVfDevList)-1]
 
 	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
 	if vfNetdevName == "" {
@@ -214,16 +214,16 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 		return "", ""
 	}
 
-	dev.vfDevList = dev.vfDevList[:len(dev.vfDevList)-1]
+	dev.pciVfDevList = dev.pciVfDevList[:len(dev.pciVfDevList)-1]
 
 	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v, len %v",
-		parentNetdev, allocatedDev, vfNetdevName, len(dev.vfDevList))
+		parentNetdev, allocatedDev, vfNetdevName, len(dev.pciVfDevList))
 	return allocatedDev, vfNetdevName
 }
 
 func FreeVF(dev *sriovDevice, vfName string) {
 	log.Debugf("FreeVF %v", vfName)
-	dev.vfDevList = append(dev.vfDevList, vfName)
+	dev.pciVfDevList = append(dev.pciVfDevList, vfName)
 }
 
 func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
@@ -259,7 +259,7 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 	dev := sriovDevices[nw.genNw.ndevName]
 
 	FreeVF(dev, endpoint.vfName)
-	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]", len(dev.vfDevList))
+	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]", len(dev.pciVfDevList))
 }
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
