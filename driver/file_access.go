@@ -120,3 +120,22 @@ func lsFilesWithPrefix(dir string, filePrefix string, ignoreDir bool) ([]string,
 	}
 	return desiredFiles, nil
 }
+
+func lsDirs(dir string) ([]string, error) {
+	var dirList []string
+
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fileInfos, err := f.Readdir(-1)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range fileInfos {
+		dirList = append(dirList, fileInfos[i].Name())
+	}
+	return dirList, nil
+}
