@@ -15,7 +15,7 @@ const (
 	sriovUnsupported = "unsupported"
 )
 
-type sriovDevice struct {
+type pfDevice struct {
 	pciVfDevList  []string
 	maxVFCount    int
 	state         string
@@ -36,15 +36,15 @@ var networks map[string]*sriovNetwork
 // netdevice to sriovstate map
 // key = phy netdevice
 // value = its sriov state/information
-var sriovDevices map[string]*sriovDevice
+var pfDevices map[string]*pfDevice
 
-func checkVlanNwExist(ndevName string, vlan int) bool {
+func checkVlanNwExist(pfNetdevName string, vlan int) bool {
 	if vlan == 0 {
 		return false
 	}
 
 	for _, nw := range networks {
-		if nw.vlan == vlan && nw.genNw.ndevName == ndevName {
+		if nw.vlan == vlan && nw.genNw.ndevName == pfNetdevName {
 			return true
 		}
 	}
@@ -96,29 +96,29 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	}
 	networks[nid] = nw
 
-	dev := sriovDevices[ndevName]
+	dev := pfDevices[ndevName]
 	dev.nwUseRefCount++
 	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
 }
 
-func disableSRIOV(ndevName string) {
+func disableSRIOV(pfNetdevName string) {
 
-	netdevDisableSRIOV(ndevName)
-	dev := sriovDevices[ndevName]
+	netdevDisableSRIOV(pfNetdevName)
+	dev := pfDevices[pfNetdevName]
 	dev.state = SRIOV_DISABLED
 	dev.pciVfDevList = nil
 }
 
-func initSriovState(ndevName string, dev *sriovDevice) error {
+func initSriovState(pfNetdevName string, dev *pfDevice) error {
 	var err error
 	var curVFs int
 
-	dev.maxVFCount, err = netdevGetMaxVFCount(ndevName)
+	dev.maxVFCount, err = netdevGetMaxVFCount(pfNetdevName)
 	if err != nil {
 		return err
 	}
-	curVFs, err = netdevGetEnabledVFCount(ndevName)
+	curVFs, err = netdevGetEnabledVFCount(pfNetdevName)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func initSriovState(ndevName string, dev *sriovDevice) error {
 	}
 
 	if dev.state == SRIOV_DISABLED {
-		err = netdevEnableSRIOV(ndevName)
+		err = netdevEnableSRIOV(pfNetdevName)
 		if err != nil {
 			return err
 		}
@@ -138,30 +138,30 @@ func initSriovState(ndevName string, dev *sriovDevice) error {
 
 	// if we haven't discovered VFs yet, try to discover
 	if len(dev.pciVfDevList) == 0 {
-		dev.pciVfDevList, err = GetVfPciDevList(ndevName)
+		dev.pciVfDevList, err = GetVfPciDevList(pfNetdevName)
 		if err != nil {
-			disableSRIOV(ndevName)
+			disableSRIOV(pfNetdevName)
 			return err
 		}
 	}
 	return nil
 }
 
-func (nw *sriovNetwork) DiscoverVFs(ndevName string) error {
+func (nw *sriovNetwork) DiscoverVFs(pfNetdevName string) error {
 	var err error
 
-	if len(sriovDevices) == 0 {
-		sriovDevices = make(map[string]*sriovDevice)
+	if len(pfDevices) == 0 {
+		pfDevices = make(map[string]*pfDevice)
 	}
 
-	dev := sriovDevices[ndevName]
+	dev := pfDevices[pfNetdevName]
 	if dev == nil {
-		newDev := sriovDevice{}
-		err = initSriovState(ndevName, &newDev)
+		newDev := pfDevice{}
+		err = initSriovState(pfNetdevName, &newDev)
 		if err != nil {
 			return err
 		}
-		sriovDevices[ndevName] = &newDev
+		pfDevices[pfNetdevName] = &newDev
 		dev = &newDev
 	}
 	log.Debugf("DiscoverVF vfDev list length : [%d]",
@@ -169,7 +169,7 @@ func (nw *sriovNetwork) DiscoverVFs(ndevName string) error {
 	return nil
 }
 
-func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
+func (nw *sriovNetwork) AllocVF(pfNetdev string) (string, string) {
 	var allocatedDev string
 	var vfNetdevName string
 	var privileged bool
@@ -180,7 +180,7 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 		privileged = false
 	}
 
-	dev := sriovDevices[parentNetdev]
+	dev := pfDevices[pfNetdev]
 	if len(dev.pciVfDevList) == 0 {
 		return "", ""
 	}
@@ -188,40 +188,40 @@ func (nw *sriovNetwork) AllocVF(parentNetdev string) (string, string) {
 	// fetch the last element
 	allocatedDev = dev.pciVfDevList[len(dev.pciVfDevList)-1]
 
-	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
+	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
 	if vfNetdevName == "" {
 		return "", ""
 	}
 
-	pciDevName := vfPCIDevNameFromVfDir(parentNetdev, allocatedDev)
+	pciDevName := vfPCIDevNameFromVfDir(pfNetdev, allocatedDev)
 	if pciDevName != "" {
-		SetVFDefaultMacAddress(parentNetdev, allocatedDev, vfNetdevName)
+		SetVFDefaultMacAddress(pfNetdev, allocatedDev, vfNetdevName)
 		if nw.vlan > 0 {
-			SetVFVlan(parentNetdev, allocatedDev, nw.vlan)
+			SetVFVlan(pfNetdev, allocatedDev, nw.vlan)
 		}
 
-		err := SetVFPrivileged(parentNetdev, allocatedDev, privileged)
+		err := SetVFPrivileged(pfNetdev, allocatedDev, privileged)
 		if err != nil {
 			return "", ""
 		}
-		unbindVF(parentNetdev, pciDevName)
-		bindVF(parentNetdev, pciDevName)
+		unbindVF(pfNetdev, pciDevName)
+		bindVF(pfNetdev, pciDevName)
 	}
 
 	/* get the new name, as this name can change after unbind-bind sequence */
-	vfNetdevName = vfNetdevNameFromParent(parentNetdev, allocatedDev)
+	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
 	if vfNetdevName == "" {
 		return "", ""
 	}
 
 	dev.pciVfDevList = dev.pciVfDevList[:len(dev.pciVfDevList)-1]
 
-	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v, len %v",
-		parentNetdev, allocatedDev, vfNetdevName, len(dev.pciVfDevList))
+	log.Debugf("AllocVF PF [ %+v ] vf:%v vfdev: %v, len %v",
+		pfNetdev, allocatedDev, vfNetdevName, len(dev.pciVfDevList))
 	return allocatedDev, vfNetdevName
 }
 
-func FreeVF(dev *sriovDevice, vfName string) {
+func FreeVF(dev *pfDevice, vfName string) {
 	log.Debugf("FreeVF %v", vfName)
 	dev.pciVfDevList = append(dev.pciVfDevList, vfName)
 }
@@ -256,7 +256,7 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 
 func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 
-	dev := sriovDevices[nw.genNw.ndevName]
+	dev := pfDevices[nw.genNw.ndevName]
 
 	FreeVF(dev, endpoint.vfName)
 	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]", len(dev.pciVfDevList))
@@ -265,7 +265,7 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
 	delete(networks, nw.genNw.id)
 
-	dev := sriovDevices[nw.genNw.ndevName]
+	dev := pfDevices[nw.genNw.ndevName]
 	dev.nwUseRefCount--
 
 	// multiple vlan based network will share enabled VFs.
@@ -273,7 +273,7 @@ func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkReque
 	// Last network that gets deleted, disables SRIOV.
 	if dev.nwUseRefCount == 0 {
 		disableSRIOV(nw.genNw.ndevName)
-		delete(sriovDevices, nw.genNw.ndevName)
+		delete(pfDevices, nw.genNw.ndevName)
 	}
 	log.Debugf("DeleteNetwork: total networks = %d", len(networks))
 }
