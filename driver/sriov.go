@@ -51,6 +51,10 @@ func checkVlanNwExist(pfNetdevName string, vlan int) bool {
 	return false
 }
 
+func (nw *sriovNetwork) getGenNw() *genericNetwork {
+	return nw.genNw
+}
+
 func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	nid string, options map[string]string,
 	ipv4Data *network.IPAMData) error {

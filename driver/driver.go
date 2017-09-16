@@ -174,12 +174,24 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 		}
 		d.networks[req.NetworkID] = &nw
 	} else {
-		nw := sriovNetwork{}
-		err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
-		if err != nil {
-			return err
+		var multiport bool
+
+		multiport = checkMultiPortDevice(options[networkDevice])
+		if multiport == true {
+			nw := dpSriovNetwork{}
+			err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
+			if err != nil {
+				return err
+			}
+			d.networks[req.NetworkID] = &nw
+		} else {
+			nw := sriovNetwork{}
+			err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
+			if err != nil {
+				return err
+			}
+			d.networks[req.NetworkID] = &nw
 		}
-		d.networks[req.NetworkID] = &nw
 	}
 	return nil
 }
@@ -245,10 +257,6 @@ func getEndpoint(genNw *genericNetwork, endpointID string) *ptEndpoint {
 }
 
 func (nw *ptNetwork) getGenNw() *genericNetwork {
-	return nw.genNw
-}
-
-func (nw *sriovNetwork) getGenNw() *genericNetwork {
 	return nw.genNw
 }
 
