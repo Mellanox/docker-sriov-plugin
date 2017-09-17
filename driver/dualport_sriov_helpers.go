@@ -98,7 +98,7 @@ func findPhyPort(netdevName string) int {
 	for _, entry := range npMap {
 		ibndevName := entry.ndevName + "__"
 		if ndevSearchName == ibndevName {
-			fmt.Printf("FOUND device = %s port = %d\n", entry.ndevName, entry.port)
+			fmt.Printf("device = %s port = %d\n", entry.ndevName, entry.port)
 			port = entry.port
 		}
 	}
@@ -126,6 +126,11 @@ func GetChildNetdevListByPort(netdevName string) ([]string, error) {
 		}
 		/* skip the self */
 		if entry.ndevName == netdevName {
+			continue
+		}
+
+		vfDir, err := FindVFDirForNetdev(netdevName, entry.ndevName)
+		if vfDir == "" || err != nil {
 			continue
 		}
 		netdevList = append(netdevList, entry.ndevName)
