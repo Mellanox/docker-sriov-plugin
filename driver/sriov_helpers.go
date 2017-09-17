@@ -203,10 +203,11 @@ func SetVFVlan(parentNetdev string, vfDir string, vlan int) error {
 
 func SetVFPrivileged(parentNetdev string, vfDir string, privileged bool) error {
 
-	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
-	vfIndex, _ := strconv.Atoi(vfIndexStr)
 	var spoofChk bool
 	var trusted bool
+
+	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
+	vfIndex, _ := strconv.Atoi(vfIndexStr)
 
 	if privileged {
 		spoofChk = false
@@ -246,4 +247,31 @@ func IsSRIOVSupported(netdevName string) bool {
 	} else {
 		return true
 	}
+}
+
+func FindVFDirForNetdev(pfNetdevName string, vfNetdevName string) (string, error) {
+
+	virtFnDirs, err := GetVfPciDevList(pfNetdevName)
+	if err != nil {
+		return "", err
+	}
+
+	ndevSearchName := vfNetdevName + "__"
+
+	for _, vfDir := range virtFnDirs {
+
+		vfNetdevPath := filepath.Join(netSysDir, pfNetdevName,
+			netDevPrefix, vfDir, "net")
+		vfNetdevList, err := lsDirs(vfNetdevPath)
+		if err != nil {
+			return "", err
+		}
+		for _, vfName := range vfNetdevList {
+			vfNamePrefixed := vfName + "__"
+			if ndevSearchName == vfNamePrefixed {
+				return vfDir, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("device %s not found", vfNetdevName)
 }

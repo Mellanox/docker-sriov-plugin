@@ -74,7 +74,6 @@ func (nw *dpSriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		if nw.checkVlanNwExist(ndevName, vlan) {
 			return fmt.Errorf("vlan already exist")
 		}
-		return fmt.Errorf("vlan not yet supported on dual port devices.")
 	}
 	if options[networkPrivileged] != "" {
 		privileged, _ = strconv.Atoi(options[networkPrivileged])
@@ -167,14 +166,24 @@ func (nw *dpSriovNetwork) AllocVF(parentNetdev string) string {
 		return ""
 	}
 
-	err := SetVFPrivileged(parentNetdev, allocatedDev, privileged)
+	vfDir, err := FindVFDirForNetdev(nw.genNw.ndevName, allocatedDev)
+	if err != nil {
+		return ""
+	}
+
+	SetVFDefaultMacAddress(nw.genNw.ndevName, vfDir, allocatedDev)
+	if nw.vlan > 0 {
+		SetVFVlan(nw.genNw.ndevName, vfDir, nw.vlan)
+	}
+
+	err = SetVFPrivileged(parentNetdev, vfDir, privileged)
 	if err != nil {
 		return ""
 	}
 
 	dev.childNetdevLlist = dev.childNetdevLlist[:len(dev.childNetdevLlist)-1]
 
-	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v, len %v",
+	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v",
 		parentNetdev, allocatedDev, len(dev.childNetdevLlist))
 	return allocatedDev
 }
