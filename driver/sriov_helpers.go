@@ -237,3 +237,13 @@ func SetPFLinkUp(parentNetdev string) error {
 	err2 := netlink.LinkSetUp(parentHandle)
 	return err2
 }
+
+func IsSRIOVSupported(netdevName string) bool {
+
+	maxvfs, err := netdevGetMaxVFCount(netdevName)
+	if maxvfs == 0 || err != nil {
+		return false
+	} else {
+		return true
+	}
+}

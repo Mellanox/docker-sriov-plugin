@@ -62,6 +62,10 @@ func (nw *dpSriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 		return err
 	}
 
+	if IsSRIOVSupported(ndevName) == false {
+		return fmt.Errorf("SRIOV is unsuppported on %s", ndevName)
+	}
+
 	if options[sriovVlan] != "" {
 		vlan, _ = strconv.Atoi(options[sriovVlan])
 		if vlan > 4095 {
