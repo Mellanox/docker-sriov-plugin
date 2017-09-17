@@ -1,12 +1,12 @@
 package driver
 
 import (
-	"os"
 	"fmt"
-	"path/filepath"
+	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 func checkMultiPortDevice(netdevName string) bool {
@@ -31,7 +31,7 @@ func checkMultiPortDevice(netdevName string) bool {
 
 		pciPath = filepath.Join(netSysDir, flist[i], netDevPrefix)
 		pciPath, _ = os.Readlink(pciPath)
-		if (pciPath == "") {
+		if pciPath == "" {
 		} else {
 			if pciPath == parentPciPath {
 				return true
@@ -56,10 +56,10 @@ func ibdev2netdevString() ([]string, error) {
 
 type ndevPortMap struct {
 	ndevName string
-	port	int
+	port     int
 }
 
-func GetNetdevicePortMap() ([]ndevPortMap) {
+func GetNetdevicePortMap() []ndevPortMap {
 	var npMap []ndevPortMap
 
 	outLines, err := ibdev2netdevString()
@@ -84,7 +84,7 @@ func GetNetdevicePortMap() ([]ndevPortMap) {
 	return npMap
 }
 
-func findPhyPort(netdevName string) (int) {
+func findPhyPort(netdevName string) int {
 	var npMap []ndevPortMap
 	var port int
 
@@ -96,7 +96,7 @@ func findPhyPort(netdevName string) (int) {
 	port = -1
 	ndevSearchName := netdevName + "__"
 	for _, entry := range npMap {
-		ibndevName :=  entry.ndevName + "__"
+		ibndevName := entry.ndevName + "__"
 		if ndevSearchName == ibndevName {
 			fmt.Printf("FOUND device = %s port = %d\n", entry.ndevName, entry.port)
 			port = entry.port

@@ -146,7 +146,7 @@ func (nw *dpSriovNetwork) DiscoverVFs(ndevName string) error {
 	return nil
 }
 
-func (nw *dpSriovNetwork) AllocVF(parentNetdev string) (string) {
+func (nw *dpSriovNetwork) AllocVF(parentNetdev string) string {
 	var allocatedDev string
 	var privileged bool
 
