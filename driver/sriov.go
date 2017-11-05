@@ -70,8 +70,8 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 
 	if options[sriovVlan] != "" {
 		vlan, _ = strconv.Atoi(options[sriovVlan])
-		if vlan > 4095 {
-			return fmt.Errorf("vlan id out of range")
+		if vlan < 0 || vlan > 4095 {
+			return fmt.Errorf("Invalid vlan id given")
 		}
 		if checkVlanNwExist(ndevName, vlan) {
 			return fmt.Errorf("vlan already exist")
@@ -98,6 +98,7 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	if len(networks) == 0 {
 		networks = make(map[string]*sriovNetwork)
 	}
+
 	networks[nid] = nw
 
 	dev := pfDevices[ndevName]
@@ -267,7 +268,6 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 }
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
-	delete(networks, nw.genNw.id)
 
 	dev := pfDevices[nw.genNw.ndevName]
 	dev.nwUseRefCount--
@@ -279,5 +279,6 @@ func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkReque
 		disableSRIOV(nw.genNw.ndevName)
 		delete(pfDevices, nw.genNw.ndevName)
 	}
+	delete(networks, nw.genNw.id)
 	log.Debugf("DeleteNetwork: total networks = %d", len(networks))
 }
