@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/network"
@@ -143,6 +144,62 @@ func parseNetworkOptions(id string, option options.Generic) (map[string]string, 
 	return nil, fmt.Errorf("invalid options")
 }
 
+func (d *driver) _CreateNetwork(nid string, options map[string]string,
+	ipv4Data *network.IPAMData, storeConfig bool) error {
+	var err error
+
+	genNw := createGenNw(nid, options[networkDevice], options[networkMode], ipv4Data)
+
+	if options[networkMode] == "passthrough" {
+		nw := ptNetwork{}
+		err = nw.CreateNetwork(d, genNw, nid, options, ipv4Data)
+		if err != nil {
+			return err
+		}
+		d.networks[nid] = &nw
+	} else {
+		var multiport bool
+
+		multiport = checkMultiPortDevice(options[networkDevice])
+		if multiport == true {
+			nw := dpSriovNetwork{}
+			err = nw.CreateNetwork(d, genNw, nid, options, ipv4Data)
+			if err != nil {
+				return err
+			}
+			d.networks[nid] = &nw
+		} else {
+			nw := sriovNetwork{}
+			err = nw.CreateNetwork(d, genNw, nid, options, ipv4Data)
+			if err != nil {
+				return err
+			}
+			d.networks[nid] = &nw
+		}
+	}
+
+	if storeConfig == true {
+		nwDbEntry := Db_Network_Info{}
+		nwDbEntry.Mode = options[networkMode]
+		nwDbEntry.Netdev = options[networkDevice]
+		nwDbEntry.Vlan, _ = strconv.Atoi(options[sriovVlan])
+		nwDbEntry.Gateway = ipv4Data.Gateway
+
+		if options[networkPrivileged] == "1" {
+			nwDbEntry.Privileged = true
+		} else {
+			nwDbEntry.Privileged = false
+		}
+
+		err = Write_Nw_Config_to_DB(nid, &nwDbEntry)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 	var err error
 
@@ -164,36 +221,8 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 
 	ipv4Data := req.IPv4Data[0]
 
-	genNw := createGenNw(req.NetworkID, options[networkDevice], options[networkMode], ipv4Data)
-
-	if options[networkMode] == "passthrough" {
-		nw := ptNetwork{}
-		err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
-		if err != nil {
-			return err
-		}
-		d.networks[req.NetworkID] = &nw
-	} else {
-		var multiport bool
-
-		multiport = checkMultiPortDevice(options[networkDevice])
-		if multiport == true {
-			nw := dpSriovNetwork{}
-			err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
-			if err != nil {
-				return err
-			}
-			d.networks[req.NetworkID] = &nw
-		} else {
-			nw := sriovNetwork{}
-			err = nw.CreateNetwork(d, genNw, req.NetworkID, options, ipv4Data)
-			if err != nil {
-				return err
-			}
-			d.networks[req.NetworkID] = &nw
-		}
-	}
-	return nil
+	err = d._CreateNetwork(req.NetworkID, options, ipv4Data, true)
+	return err
 }
 
 func (d *driver) AllocateNetwork(r *network.AllocateNetworkRequest) (*network.AllocateNetworkResponse, error) {
@@ -214,11 +243,50 @@ func (d *driver) DeleteNetwork(req *network.DeleteNetworkRequest) error {
 	}
 
 	delete(d.networks, req.NetworkID)
+
+	Del_Nw_Config_From_DB(req.NetworkID)
 	return nil
 }
 
 func (d *driver) FreeNetwork(r *network.FreeNetworkRequest) error {
 	log.Debugf("FreeNetwork Called: [ %+v ]", r)
+	return nil
+}
+
+func BuildNetworkOptions(nwDbEntry *Db_Network_Info) (map[string]string, error) {
+
+	options := make(map[string]string)
+
+	options[networkDevice] = nwDbEntry.Netdev
+	options[networkMode] = nwDbEntry.Mode
+	options[sriovVlan] = strconv.Itoa(nwDbEntry.Vlan)
+	if nwDbEntry.Privileged {
+		options[networkPrivileged] = "1"
+	} else {
+		options[networkPrivileged] = "0"
+	}
+	return options, nil
+}
+
+func (d *driver) CreatePersistentNetworks() error {
+	nwList, err := Read_Past_Config(persistConfigPath)
+	if err != nil {
+		return err
+	}
+
+	for _, n := range nwList {
+		options, _ := BuildNetworkOptions(&n.Info)
+
+		ipv4Data := network.IPAMData{}
+		ipv4Data.Gateway = n.Info.Gateway
+
+		/* Create nw, but ignore the error.
+		 * This can happen when plugin is stopped and networks are
+		 * Deleted at the docker engine level, which plugin is
+		 * completely unaware of.
+		 */
+		_ = d._CreateNetwork(n.NetworkID, options, &ipv4Data, false)
+	}
 	return nil
 }
 
@@ -234,6 +302,12 @@ func StartDriver() (*driver, error) {
 	driver := &driver{
 		networks: dnetworks,
 	}
+
+	err := driver.CreatePersistentNetworks()
+	if err != nil {
+		return nil, err
+	}
+
 	return driver, nil
 }
 
