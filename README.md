@@ -38,7 +38,7 @@ In future more settings for each such netdevice and network will be added.
 
 (a) In certain use cases where high performance networking application running as container can benefit from such native devices.
 
-(b) It is probably good fit for NFV applications which can benefit of hardware based isolation, NIC adapter based switching, granular     control of the device, possibly at lower cpu utilization.
+(b) It is probably good fit for NFV applications which can benefit of hardware based isolation, NIC adapter based switching, granular control of the device, possibly at lower cpu utilization.
 
 (c) nested virtualization - where macvlan or ipvlan based nested containers on top of VF based network interface
 
@@ -56,10 +56,12 @@ $ docker pull mellanox/passthrough-plugin
 
 **3.** Run the plugin now
 ```
-$ docker run -v /run/docker/plugins:/run/docker/plugins --net=host --privileged mellanox/passthrough-plugin
+$ docker run -v /run/docker/plugins:/run/docker/plugins -v /etc/docker:/etc/docker --net=host --privileged mellanox/passthrough-plugin
 ```
 This will start the container and emits console logs of the plugin where its started.
 The powerful aspect of this is, it doesn't require user/administrator to restart the docker engine.
+
+This persists the network configuration in /etc/docker/mellanox directory.
 
 **4.** Test it out - SRIOV mode
 
