@@ -139,3 +139,7 @@ func lsDirs(dir string) ([]string, error) {
 	}
 	return dirList, nil
 }
+
+func createDir(dir string) error {
+	return os.MkdirAll(dir, 0755)
+}
