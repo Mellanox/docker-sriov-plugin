@@ -118,8 +118,10 @@ func disableSRIOV(pfNetdevName string) {
 }
 
 func initSriovState(pfNetdevName string, dev *pfDevice) error {
-	var err error
+	var vfNetdevName string
+	var vf *list.Element
 	var curVFs int
+	var err error
 
 	dev.maxVFCount, err = netdevGetMaxVFCount(pfNetdevName)
 	if err != nil {
@@ -155,6 +157,17 @@ func initSriovState(pfNetdevName string, dev *pfDevice) error {
 			 dev.pciVfDevList.PushBack(vf)
 		}
 	}
+
+	for vf = dev.pciVfDevList.Front(); vf != nil; vf = vf.Next() {
+		vfNetdevName = vfNetdevNameFromParent(pfNetdevName, vf.Value.(string))
+	
+		SetVFDefaultMacAddress(pfNetdevName, vf.Value.(string), vfNetdevName)
+	
+		pciDevName := vfPCIDevNameFromVfDir(pfNetdevName, vf.Value.(string))
+		unbindVF(pfNetdevName, pciDevName)
+		bindVF(pfNetdevName, pciDevName)
+	}
+
 	return nil
 }
 
@@ -220,14 +233,6 @@ func (nw *sriovNetwork) AllocVF(pfNetdev string) (string, string) {
 		if err != nil {
 			return "", ""
 		}
-		unbindVF(pfNetdev, pciDevName)
-		bindVF(pfNetdev, pciDevName)
-	}
-
-	/* get the new name, as this name can change after unbind-bind sequence */
-	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
-	if vfNetdevName == "" {
-		return "", ""
 	}
 
 	dev.pciVfDevList.Remove(e)
@@ -281,8 +286,6 @@ func (nw *sriovNetwork) AllocVFByMacAddr(pfNetdev string, vfMacAddress string) (
 		if err != nil {
 			return "", ""
 		}
-		unbindVF(pfNetdev, pciDevName)
-		bindVF(pfNetdev, pciDevName)
 	}
 
 	/* get the new name, as this name can change after unbind-bind sequence */
