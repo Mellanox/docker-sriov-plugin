@@ -52,7 +52,9 @@ The quickstart instructions describe how to start the plugin and make use of it.
 
 **2.** Get the new plugin
 
+```
 $ docker pull mellanox/passthrough-plugin
+```
 
 **3.** Run the plugin now
 ```
