@@ -125,6 +125,16 @@ Below command created privileged network. All containers running in this network
 $ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 -o privileged=1 customer1
 ```
 
+**4.5** Selecting specific VF based on MAC address for a container
+
+There might be a need for a user to choose a specific VF from the available pool.
+This is supported based on specifing the MAC address while starting a container.
+
+```
+$ docker run --net=customer1 --mac-address=<valid_mac_address_of_desired_vf> -itd --name=web nginx
+```
+
+
 **5.** Test it out Passthrough mode
 
 **5.1** Now you are ready to create a new network
