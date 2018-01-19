@@ -3,6 +3,7 @@ package driver
 import (
 	"fmt"
 	"strconv"
+	"container/list"
 
 	"github.com/docker/go-plugins-helpers/network"
 
@@ -16,7 +17,8 @@ const (
 )
 
 type pfDevice struct {
-	pciVfDevList  []string
+	pciVfDevList  *list.List
+	
 	maxVFCount    int
 	state         string
 	nwUseRefCount int
@@ -142,11 +144,15 @@ func initSriovState(pfNetdevName string, dev *pfDevice) error {
 	}
 
 	// if we haven't discovered VFs yet, try to discover
-	if len(dev.pciVfDevList) == 0 {
-		dev.pciVfDevList, err = GetVfPciDevList(pfNetdevName)
-		if err != nil {
+	if dev.pciVfDevList == nil {
+		vfList, err2 := GetVfPciDevList(pfNetdevName)
+		if err2 != nil {
 			disableSRIOV(pfNetdevName)
-			return err
+			return err2
+		}
+		dev.pciVfDevList = list.New()
+		for _, vf := range vfList {
+			 dev.pciVfDevList.PushBack(vf)
 		}
 	}
 	return nil
@@ -170,7 +176,7 @@ func (nw *sriovNetwork) DiscoverVFs(pfNetdevName string) error {
 		dev = &newDev
 	}
 	log.Debugf("DiscoverVF vfDev list length : [%d]",
-		len(dev.pciVfDevList))
+		dev.pciVfDevList.Len())
 	return nil
 }
 
@@ -186,12 +192,17 @@ func (nw *sriovNetwork) AllocVF(pfNetdev string) (string, string) {
 	}
 
 	dev := pfDevices[pfNetdev]
-	if len(dev.pciVfDevList) == 0 {
+ 
+	if dev.pciVfDevList == nil {
 		return "", ""
 	}
 
-	// fetch the last element
-	allocatedDev = dev.pciVfDevList[len(dev.pciVfDevList)-1]
+	// pick first element
+	e := dev.pciVfDevList.Front()
+	if e == nil {
+		return "", ""
+	}
+	allocatedDev = e.Value.(string)
 
 	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
 	if vfNetdevName == "" {
@@ -219,23 +230,89 @@ func (nw *sriovNetwork) AllocVF(pfNetdev string) (string, string) {
 		return "", ""
 	}
 
-	dev.pciVfDevList = dev.pciVfDevList[:len(dev.pciVfDevList)-1]
+	dev.pciVfDevList.Remove(e)
 
 	log.Debugf("AllocVF PF [ %+v ] vf:%v vfdev: %v, len %v",
-		pfNetdev, allocatedDev, vfNetdevName, len(dev.pciVfDevList))
+		pfNetdev, allocatedDev, vfNetdevName,
+		dev.pciVfDevList.Len())
+	return allocatedDev, vfNetdevName
+}
+
+func (nw *sriovNetwork) AllocVFByMacAddr(pfNetdev string, vfMacAddress string) (string, string) {
+	var allocatedDev string
+	var vfNetdevName string
+	var privileged bool
+	var vf *list.Element
+
+	if nw.privileged > 0 {
+		privileged = true
+	} else {
+		privileged = false
+	}
+
+	dev := pfDevices[pfNetdev]
+	if dev.pciVfDevList == nil {
+		return "", ""
+	}
+
+	for vf = dev.pciVfDevList.Front(); vf != nil; vf = vf.Next() {
+		vfNetdevName = vfNetdevNameFromParent(pfNetdev, vf.Value.(string))
+
+		macAddr, _ := GetVFDefaultMacAddr(vfNetdevName)
+		if vfMacAddress == macAddr {
+			allocatedDev = vf.Value.(string)
+			break
+		}
+	}
+	if allocatedDev == "" {
+		log.Debugf("AllocVFByMacAddr PF Device for MAC %v not found len %v",
+			pfNetdev, vfMacAddress, dev.pciVfDevList.Len())
+		return "", ""
+	}
+
+	pciDevName := vfPCIDevNameFromVfDir(pfNetdev, allocatedDev)
+	if pciDevName != "" {
+		SetVFDefaultMacAddress(pfNetdev, allocatedDev, vfNetdevName)
+		if nw.vlan > 0 {
+			SetVFVlan(pfNetdev, allocatedDev, nw.vlan)
+		}
+
+		err := SetVFPrivileged(pfNetdev, allocatedDev, privileged)
+		if err != nil {
+			return "", ""
+		}
+		unbindVF(pfNetdev, pciDevName)
+		bindVF(pfNetdev, pciDevName)
+	}
+
+	/* get the new name, as this name can change after unbind-bind sequence */
+	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
+	if vfNetdevName == "" {
+		return "", ""
+	}
+
+	dev.pciVfDevList.Remove(vf)
+
+	log.Debugf("AllocVF PF [ %+v ] vf:%v vfdev: %v, len %v",
+		pfNetdev, allocatedDev, vfNetdevName, dev.pciVfDevList.Len())
 	return allocatedDev, vfNetdevName
 }
 
 func FreeVF(dev *pfDevice, vfName string) {
 	log.Debugf("FreeVF %v", vfName)
-	dev.pciVfDevList = append(dev.pciVfDevList, vfName)
+	dev.pciVfDevList.PushBack(vfName)
 }
 
 func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
 	var netdevName string
 	var vfName string
 
-	vfName, netdevName = nw.AllocVF(nw.genNw.ndevName)
+	if r.Interface.MacAddress != "" {
+		vfName, netdevName = nw.AllocVFByMacAddr(nw.genNw.ndevName, r.Interface.MacAddress)
+	} else {
+		vfName, netdevName = nw.AllocVF(nw.genNw.ndevName)
+	}
+
 	if netdevName == "" {
 		return nil, fmt.Errorf("All devices in use [ %s ].", r.NetworkID)
 	}
@@ -264,7 +341,8 @@ func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 	dev := pfDevices[nw.genNw.ndevName]
 
 	FreeVF(dev, endpoint.vfName)
-	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]", len(dev.pciVfDevList))
+	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]",
+		dev.pciVfDevList.Len())
 }
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {

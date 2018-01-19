@@ -168,6 +168,17 @@ func GetVfPciDevList(name string) ([]string, error) {
 	return vfDirList, nil
 }
 
+func GetVFDefaultMacAddr(vfNetdevName string) (string, error) {
+
+	ethHandle, err1 := netlink.LinkByName(vfNetdevName)
+	if err1 != nil {
+		return "", err1
+	}
+
+	ethAttr := ethHandle.Attrs()
+	return ethAttr.HardwareAddr.String(), nil
+}
+
 func SetVFDefaultMacAddress(parentNetdev string, vfDir string, vfNetdevName string) error {
 
 	vfIndexStr := strings.TrimPrefix(vfDir, "virtfn")
