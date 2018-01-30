@@ -156,6 +156,7 @@ $ docker run --net=mynet -itd --name=web nginx
 2. mode - passthrough/sriov
 3. vlan - vlan offload to use for child netdevices
 4. privileged - indicating privileged network that can sniff packets, and modify L2 addresses
+5. prefix - prefix of the interface name within the container (default: "eth")
 
 ### Limitations
 
