@@ -23,6 +23,7 @@ const (
 	networkModeSRIOV  = "sriov"
 	sriovVlan         = "vlan"
 	networkPrivileged = "privileged"
+	ethPrefix         = "prefix"
 )
 
 type ptEndpoint struct {
@@ -45,6 +46,7 @@ type genericNetwork struct {
 	ndevEndpoints map[string]*ptEndpoint
 	driver        *driver // The network's driver
 	mode          string  // SRIOV or Passthough
+	ethPrefix     string
 
 	ndevName string
 }
@@ -72,7 +74,7 @@ type driver struct {
 }
 
 func createGenNw(nid string, ndevName string,
-	networkMode string, ipv4Data *network.IPAMData) *genericNetwork {
+	networkMode string, ethPrefix string, ipv4Data *network.IPAMData) *genericNetwork {
 
 	genNw := genericNetwork{}
 	ndevs := map[string]*ptEndpoint{}
@@ -81,6 +83,8 @@ func createGenNw(nid string, ndevName string,
 	genNw.IPv4Data = ipv4Data
 	genNw.ndevEndpoints = ndevs
 	genNw.ndevName = ndevName
+	genNw.ethPrefix = ethPrefix
+
 	return &genNw
 }
 
@@ -106,6 +110,8 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 				options[key] = fmt.Sprintf("%s", value)
 			case networkPrivileged:
 				options[key] = fmt.Sprintf("%s", value)
+			case ethPrefix:
+				options[key] = fmt.Sprintf("%s", value)
 			}
 		}
 		log.Debugf("parseNetworkGenericOptions %v", options)
@@ -129,6 +135,11 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 			return options, fmt.Errorf("passthrough mode requires netdevice")
 		}
 	}
+
+	if options[ethPrefix] == "" {
+		options[ethPrefix] = containerVethPrefix
+	}
+
 	return options, err
 }
 
@@ -148,7 +159,7 @@ func (d *driver) _CreateNetwork(nid string, options map[string]string,
 	ipv4Data *network.IPAMData, storeConfig bool) error {
 	var err error
 
-	genNw := createGenNw(nid, options[networkDevice], options[networkMode], ipv4Data)
+	genNw := createGenNw(nid, options[networkDevice], options[networkMode], options[ethPrefix], ipv4Data)
 
 	if options[networkMode] == "passthrough" {
 		nw := ptNetwork{}
@@ -394,7 +405,7 @@ func (d *driver) Join(r *network.JoinRequest) (*network.JoinResponse, error) {
 	resp := network.JoinResponse{
 		InterfaceName: network.InterfaceName{
 			SrcName:   endpoint.devName,
-			DstPrefix: containerVethPrefix,
+			DstPrefix: genNw.ethPrefix,
 		},
 		DisableGatewayService: false,
 		Gateway:               gw.String(),
