@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/Mellanox/sriovnet"
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
@@ -37,6 +38,7 @@ type ptEndpoint struct {
 	Address      string
 	sandboxKey   string
 	vfName       string
+	vfObj        *sriovnet.VfObj
 }
 
 type genericNetwork struct {

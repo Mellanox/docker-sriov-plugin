@@ -3,8 +3,8 @@ package driver
 import (
 	"fmt"
 	"strconv"
-	"container/list"
 
+	"github.com/Mellanox/sriovnet"
 	"github.com/docker/go-plugins-helpers/network"
 
 	log "github.com/Sirupsen/logrus"
@@ -17,9 +17,7 @@ const (
 )
 
 type pfDevice struct {
-	pciVfDevList  *list.List
-	
-	maxVFCount    int
+	pfHandle      *sriovnet.PfNetdevHandle
 	state         string
 	nwUseRefCount int
 }
@@ -111,63 +109,29 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 
 func disableSRIOV(pfNetdevName string) {
 
-	netdevDisableSRIOV(pfNetdevName)
+	sriovnet.DisableSriov(pfNetdevName)
 	dev := pfDevices[pfNetdevName]
 	dev.state = SRIOV_DISABLED
-	dev.pciVfDevList = nil
 }
 
 func initSriovState(pfNetdevName string, dev *pfDevice) error {
-	var vfNetdevName string
-	var vf *list.Element
-	var curVFs int
 	var err error
 
-	dev.maxVFCount, err = netdevGetMaxVFCount(pfNetdevName)
+	err = sriovnet.EnableSriov(pfNetdevName)
 	if err != nil {
 		return err
 	}
-	curVFs, err = netdevGetEnabledVFCount(pfNetdevName)
+	dev.pfHandle, err = sriovnet.GetPfNetdevHandle(pfNetdevName)
 	if err != nil {
 		return err
 	}
-	if curVFs != 0 {
-		dev.state = SRIOV_ENABLED
-	} else {
-		dev.state = SRIOV_DISABLED
+
+	err = sriovnet.ConfigVfs(dev.pfHandle)
+	if err != nil {
+		return err
 	}
 
-	if dev.state == SRIOV_DISABLED {
-		err = netdevEnableSRIOV(pfNetdevName)
-		if err != nil {
-			return err
-		}
-		dev.state = SRIOV_ENABLED
-	}
-
-	// if we haven't discovered VFs yet, try to discover
-	if dev.pciVfDevList == nil {
-		vfList, err2 := GetVfPciDevList(pfNetdevName)
-		if err2 != nil {
-			disableSRIOV(pfNetdevName)
-			return err2
-		}
-		dev.pciVfDevList = list.New()
-		for _, vf := range vfList {
-			 dev.pciVfDevList.PushBack(vf)
-		}
-	}
-
-	for vf = dev.pciVfDevList.Front(); vf != nil; vf = vf.Next() {
-		vfNetdevName = vfNetdevNameFromParent(pfNetdevName, vf.Value.(string))
-	
-		SetVFDefaultMacAddress(pfNetdevName, vf.Value.(string), vfNetdevName)
-	
-		pciDevName := vfPCIDevNameFromVfDir(pfNetdevName, vf.Value.(string))
-		unbindVF(pfNetdevName, pciDevName)
-		bindVF(pfNetdevName, pciDevName)
-	}
-
+	dev.state = SRIOV_ENABLED
 	return nil
 }
 
@@ -188,140 +152,49 @@ func (nw *sriovNetwork) DiscoverVFs(pfNetdevName string) error {
 		pfDevices[pfNetdevName] = &newDev
 		dev = &newDev
 	}
-	log.Debugf("DiscoverVF vfDev list length : [%d]",
-		dev.pciVfDevList.Len())
 	return nil
 }
 
-func (nw *sriovNetwork) AllocVF(pfNetdev string) (string, string) {
-	var allocatedDev string
-	var vfNetdevName string
-	var privileged bool
-
-	if nw.privileged > 0 {
-		privileged = true
-	} else {
-		privileged = false
-	}
-
-	dev := pfDevices[pfNetdev]
- 
-	if dev.pciVfDevList == nil {
-		return "", ""
-	}
-
-	// pick first element
-	e := dev.pciVfDevList.Front()
-	if e == nil {
-		return "", ""
-	}
-	allocatedDev = e.Value.(string)
-
-	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
-	if vfNetdevName == "" {
-		return "", ""
-	}
-
-	pciDevName := vfPCIDevNameFromVfDir(pfNetdev, allocatedDev)
-	if pciDevName != "" {
-		SetVFDefaultMacAddress(pfNetdev, allocatedDev, vfNetdevName)
-		if nw.vlan > 0 {
-			SetVFVlan(pfNetdev, allocatedDev, nw.vlan)
-		}
-
-		err := SetVFPrivileged(pfNetdev, allocatedDev, privileged)
-		if err != nil {
-			return "", ""
-		}
-	}
-
-	dev.pciVfDevList.Remove(e)
-
-	log.Debugf("AllocVF PF [ %+v ] vf:%v vfdev: %v, len %v",
-		pfNetdev, allocatedDev, vfNetdevName,
-		dev.pciVfDevList.Len())
-	return allocatedDev, vfNetdevName
-}
-
-func (nw *sriovNetwork) AllocVFByMacAddr(pfNetdev string, vfMacAddress string) (string, string) {
-	var allocatedDev string
-	var vfNetdevName string
-	var privileged bool
-	var vf *list.Element
-
-	if nw.privileged > 0 {
-		privileged = true
-	} else {
-		privileged = false
-	}
-
-	dev := pfDevices[pfNetdev]
-	if dev.pciVfDevList == nil {
-		return "", ""
-	}
-
-	for vf = dev.pciVfDevList.Front(); vf != nil; vf = vf.Next() {
-		vfNetdevName = vfNetdevNameFromParent(pfNetdev, vf.Value.(string))
-
-		macAddr, _ := GetVFDefaultMacAddr(vfNetdevName)
-		if vfMacAddress == macAddr {
-			allocatedDev = vf.Value.(string)
-			break
-		}
-	}
-	if allocatedDev == "" {
-		log.Debugf("AllocVFByMacAddr PF Device for MAC %v not found len %v",
-			pfNetdev, vfMacAddress, dev.pciVfDevList.Len())
-		return "", ""
-	}
-
-	pciDevName := vfPCIDevNameFromVfDir(pfNetdev, allocatedDev)
-	if pciDevName != "" {
-		SetVFDefaultMacAddress(pfNetdev, allocatedDev, vfNetdevName)
-		if nw.vlan > 0 {
-			SetVFVlan(pfNetdev, allocatedDev, nw.vlan)
-		}
-
-		err := SetVFPrivileged(pfNetdev, allocatedDev, privileged)
-		if err != nil {
-			return "", ""
-		}
-	}
-
-	/* get the new name, as this name can change after unbind-bind sequence */
-	vfNetdevName = vfNetdevNameFromParent(pfNetdev, allocatedDev)
-	if vfNetdevName == "" {
-		return "", ""
-	}
-
-	dev.pciVfDevList.Remove(vf)
-
-	log.Debugf("AllocVF PF [ %+v ] vf:%v vfdev: %v, len %v",
-		pfNetdev, allocatedDev, vfNetdevName, dev.pciVfDevList.Len())
-	return allocatedDev, vfNetdevName
-}
-
-func FreeVF(dev *pfDevice, vfName string) {
-	log.Debugf("FreeVF %v", vfName)
-	dev.pciVfDevList.PushBack(vfName)
-}
-
 func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.CreateEndpointResponse, error) {
-	var netdevName string
-	var vfName string
+	var vfObj *sriovnet.VfObj
+	var err error
+	var privileged bool
+
+	if nw.privileged > 0 {
+		privileged = true
+	} else {
+		privileged = false
+	}
+
+	dev := pfDevices[nw.genNw.ndevName]
+	if dev.pfHandle == nil {
+		return nil, fmt.Errorf("Invalid SRIOV configuration")
+	}
 
 	if r.Interface.MacAddress != "" {
-		vfName, netdevName = nw.AllocVFByMacAddr(nw.genNw.ndevName, r.Interface.MacAddress)
+		vfObj, err = sriovnet.AllocateVfByMacAddress(dev.pfHandle, r.Interface.MacAddress)
 	} else {
-		vfName, netdevName = nw.AllocVF(nw.genNw.ndevName)
+		vfObj, err = sriovnet.AllocateVf(dev.pfHandle)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Fail to allocate VF err = %v", err)
 	}
 
-	if netdevName == "" {
-		return nil, fmt.Errorf("All devices in use [ %s ].", r.NetworkID)
+	if nw.vlan > 0 {
+		sriovnet.SetVfVlan(dev.pfHandle, vfObj, nw.vlan)
 	}
+
+	err2 := sriovnet.SetVfPrivileged(dev.pfHandle, vfObj, privileged)
+	if err2 != nil {
+		sriovnet.FreeVf(dev.pfHandle, vfObj)
+		return nil, fmt.Errorf("Fail to set priviledged err = %v", err2)
+	}
+
+	log.Debugf("AllocVF PF [ %+v ] vf:%v", nw.genNw.ndevName, vfObj)
+
 	ndev := &ptEndpoint{
-		devName: netdevName,
-		vfName:  vfName,
+		devName: vfObj.NetdevName,
+		vfObj:   vfObj,
 		Address: r.Interface.Address,
 	}
 	nw.genNw.ndevEndpoints[r.EndpointID] = ndev
@@ -342,10 +215,7 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 func (nw *sriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 
 	dev := pfDevices[nw.genNw.ndevName]
-
-	FreeVF(dev, endpoint.vfName)
-	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]",
-		dev.pciVfDevList.Len())
+	sriovnet.FreeVf(dev.pfHandle, endpoint.vfObj)
 }
 
 func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
