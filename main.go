@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	version = "0.0.1"
+	version = "0.4"
 )
 
 // Run initializes the driver
@@ -27,7 +27,7 @@ func Run(ctx *cli.Context) {
 	}
 	h := network.NewHandler(d)
 
-	log.Debugf("Mellanox passthrough/sriov plugin started.")
+	log.Debugf("Mellanox passthrough/sriov plugin started version=%v", version)
 	log.Debugf("Ready to accept commands.")
 
 	err = h.ServeUnix("passthrough", 0)
