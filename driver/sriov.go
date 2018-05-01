@@ -126,7 +126,7 @@ func initSriovState(pfNetdevName string, dev *pfDevice) error {
 		return err
 	}
 
-	err = sriovnet.ConfigVfs(dev.pfHandle)
+	err = sriovnet.ConfigVfs(dev.pfHandle, true)
 	if err != nil {
 		return err
 	}
@@ -176,6 +176,7 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	} else {
 		vfObj, err = sriovnet.AllocateVf(dev.pfHandle)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("Fail to allocate VF err = %v", err)
 	}
@@ -193,7 +194,7 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	log.Debugf("AllocVF PF [ %+v ] vf:%v", nw.genNw.ndevName, vfObj)
 
 	ndev := &ptEndpoint{
-		devName: vfObj.NetdevName,
+		devName: sriovnet.GetVfNetdevName(dev.pfHandle, vfObj),
 		vfObj:   vfObj,
 		Address: r.Interface.Address,
 	}
