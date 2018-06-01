@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	version = "0.4"
+	version = "0.5"
 )
 
 // Run initializes the driver
@@ -27,10 +27,10 @@ func Run(ctx *cli.Context) {
 	}
 	h := network.NewHandler(d)
 
-	log.Debugf("Mellanox passthrough/sriov plugin started version=%v", version)
+	log.Debugf("Mellanox sriov plugin started version=%v", version)
 	log.Debugf("Ready to accept commands.")
 
-	err = h.ServeUnix("passthrough", 0)
+	err = h.ServeUnix("sriov", 0)
 	if err != nil {
 		log.Fatal("Run app error: %s", err.Error())
 		os.Exit(1)
@@ -44,8 +44,8 @@ func main() {
 		Usage: "enable debugging",
 	}
 	app := cli.NewApp()
-	app.Name = "passthrough"
-	app.Usage = "Docker Networking using Passthrough/SRIOV netdevices"
+	app.Name = "sriov"
+	app.Usage = "Docker Networking using SRIOV/Passthrough netdevices"
 	app.Version = version
 	app.Flags = []cli.Flag{
 		flagDebug,

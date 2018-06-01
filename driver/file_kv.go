@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	persistConfigPath = "/etc/docker/mellanox/docker-passthrough-plugin"
+	persistConfigPath = "/etc/docker/mellanox/docker-sriov-plugin"
 )
 
 /* Configuration layout

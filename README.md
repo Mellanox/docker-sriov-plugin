@@ -1,4 +1,4 @@
-docker-passthrough-plugin
+docker-sriov-plugin
 =========================
 
 ### Overview
@@ -53,12 +53,12 @@ The quickstart instructions describe how to start the plugin and make use of it.
 **2.** Get the new plugin
 
 ```
-$ docker pull mellanox/passthrough-plugin
+$ docker pull mellanox/sriov-plugin
 ```
 
 **3.** Run the plugin now
 ```
-$ docker run -v /run/docker/plugins:/run/docker/plugins -v /etc/docker:/etc/docker --net=host --privileged mellanox/passthrough-plugin
+$ docker run -v /run/docker/plugins:/run/docker/plugins -v /etc/docker:/etc/docker --net=host --privileged mellanox/sriov-plugin
 ```
 This will start the container and emits console logs of the plugin where its started.
 The powerful aspect of this is, it doesn't require user/administrator to restart the docker engine.
@@ -75,7 +75,7 @@ to container when a container is started.
 Subnet of the netdevice of container and host can be different.
 
 ```
-$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov mynet
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov mynet
 ```
 
 **4.2** Now you are ready run container to make use of passthrough-sriov network and its interface
@@ -96,11 +96,11 @@ customer2 has vlan 200.
 All containers created in customer1 belong to vlan 100 and cannot talk to containers running in customer2 network which is in vlan 200.
 
 ```
-$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 customer1
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 customer1
 ```
 
 ```
-$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=200 customer2
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=200 customer2
 ```
 
 ```
@@ -122,7 +122,7 @@ To enable access for trusted applications network should be created using 'privi
 Below command created privileged network. All containers running in this network will have access to modify L2 addresses and also sniff traffic.
 
 ```
-$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 -o privileged=1 customer1
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 -o privileged=1 customer1
 ```
 
 **4.5** Selecting specific VF based on MAC address for a container
@@ -140,7 +140,7 @@ $ docker run --net=customer1 --mac-address=<valid_mac_address_of_desired_vf> -it
 **5.1** Now you are ready to create a new network
 
 ```
-$ docker network create -d passthrough --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=passthrough mynet
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=passthrough mynet
 ```
 
 **5.2** Now you are ready run container to make use of passthrough network and its interface
