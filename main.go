@@ -6,7 +6,7 @@ import (
 	"github.com/docker/go-plugins-helpers/network"
 	"os"
 
-	"github.com/gopher-net/docker-passthrough-plugin/driver"
+	"github.com/gopher-net/docker-sriov-plugin/driver"
 )
 
 const (
