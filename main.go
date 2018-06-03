@@ -6,11 +6,11 @@ import (
 	"github.com/docker/go-plugins-helpers/network"
 	"os"
 
-	"github.com/gopher-net/docker-sriov-plugin/driver"
+	"docker-sriov-plugin/driver"
 )
 
 const (
-	version = "0.6"
+	version = "0.7"
 )
 
 // Run initializes the driver
