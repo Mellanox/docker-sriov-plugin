@@ -122,7 +122,7 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 
 	if options[networkMode] == "" {
 		// default to sriov
-		options[networkMode] = networkModePT
+		options[networkMode] = networkModeSRIOV
 	} else {
 		if options[networkMode] != networkModePT &&
 			options[networkMode] != networkModeSRIOV {

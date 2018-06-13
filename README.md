@@ -6,7 +6,7 @@ docker-sriov-plugin
 This network plugin allows to have direct/passthrough access to the native Ethernet networking device to the Docker container(s).
 It provides two modes of operations.
 
-(1) sriov
+(1) sriov (default)
 
     In this mode given netdev interface is used as PCIe physical function to define a network.
     All container instances will get one PCIe VF based network device when they are started.
@@ -42,7 +42,9 @@ In future more settings for each such netdevice and network will be added.
 
 (c) nested virtualization - where macvlan or ipvlan based nested containers on top of VF based network interface
 
-(d) When using InfiniBand (not RoCE), IPoIB netdevices can be directly mapped as passthrough devices without creating additional virtual devices.
+(d) When using InfiniBand (not RoCE), IPoIB VF netdevices can be directly mapped as passthrough devices without creating additional virtual devices.
+
+(e) RDMA vHCA can be used with Docker containers using this plugin.
 
 ### QuickStart Instructions
 
@@ -75,7 +77,7 @@ to container when a container is started.
 Subnet of the netdevice of container and host can be different.
 
 ```
-$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov mynet
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 mynet
 ```
 
 **4.2** Now you are ready run container to make use of passthrough-sriov network and its interface
@@ -96,11 +98,11 @@ customer2 has vlan 200.
 All containers created in customer1 belong to vlan 100 and cannot talk to containers running in customer2 network which is in vlan 200.
 
 ```
-$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 customer1
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o vlan=100 customer1
 ```
 
 ```
-$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=200 customer2
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o vlan=200 customer2
 ```
 
 ```
@@ -122,7 +124,7 @@ To enable access for trusted applications network should be created using 'privi
 Below command created privileged network. All containers running in this network will have access to modify L2 addresses and also sniff traffic.
 
 ```
-$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o mode=sriov -o vlan=100 -o privileged=1 customer1
+$ docker network create -d sriov --subnet=194.168.1.0/24 -o netdevice=ens2f0 -o vlan=100 -o privileged=1 customer1
 ```
 
 **4.5** Selecting specific VF based on MAC address for a container
@@ -152,7 +154,7 @@ $ docker run --net=mynet -itd --name=web nginx
 
 **6.** Network Creation options list
 
-1. netdevice - parent network device to use for creating netdevice interfaces
+1. netdevice - PF/parent network device to use for creating netdevice interfaces
 2. mode - passthrough/sriov
 3. vlan - vlan offload to use for child netdevices
 4. privileged - indicating privileged network that can sniff packets, and modify L2 addresses
@@ -160,4 +162,4 @@ $ docker run --net=mynet -itd --name=web nginx
 
 ### Limitations
 
-It supported on Linux environment.
+It supported on Linux environment on x86_64 and ppc64le platforms.

@@ -2,9 +2,9 @@ package driver
 
 import (
 	"fmt"
-	"strconv"
-	"log"
 	"github.com/docker/go-plugins-helpers/network"
+	"log"
+	"strconv"
 )
 
 type dpSriovNetwork struct {

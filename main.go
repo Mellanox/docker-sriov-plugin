@@ -1,16 +1,16 @@
 package main
 
 import (
-	"log"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
+	"log"
 	"os"
 
 	"docker-sriov-plugin/driver"
 )
 
 const (
-	version = "0.7"
+	version = "0.0.8"
 )
 
 // Run initializes the driver
