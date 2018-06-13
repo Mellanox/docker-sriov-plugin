@@ -3,11 +3,9 @@ package driver
 import (
 	"fmt"
 	"strconv"
-
+	"log"
 	"github.com/Mellanox/sriovnet"
 	"github.com/docker/go-plugins-helpers/network"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -103,7 +101,7 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 
 	dev := pfDevices[ndevName]
 	dev.nwUseRefCount++
-	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
+	log.Printf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
 }
 
@@ -191,7 +189,7 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 		return nil, fmt.Errorf("Fail to set priviledged err = %v", err2)
 	}
 
-	log.Debugf("AllocVF PF [ %+v ] vf:%v", nw.genNw.ndevName, vfObj)
+	log.Printf("AllocVF PF [ %+v ] vf:%v\n", nw.genNw.ndevName, vfObj)
 
 	ndev := &ptEndpoint{
 		devName: sriovnet.GetVfNetdevName(dev.pfHandle, vfObj),
@@ -209,7 +207,7 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	}
 	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
 
-	log.Debugf("SRIOV CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
+	log.Printf("SRIOV CreateEndpoint resp interface: [ %+v ]\n", resp.Interface)
 	return resp, nil
 }
 
@@ -232,5 +230,5 @@ func (nw *sriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkReque
 		delete(pfDevices, nw.genNw.ndevName)
 	}
 	delete(networks, nw.genNw.id)
-	log.Debugf("DeleteNetwork: total networks = %d", len(networks))
+	log.Printf("DeleteNetwork: total networks = %d\n", len(networks))
 }

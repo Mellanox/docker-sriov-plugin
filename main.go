@@ -1,7 +1,7 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"log"
 	"github.com/codegangsta/cli"
 	"github.com/docker/go-plugins-helpers/network"
 	"os"
@@ -15,20 +15,14 @@ const (
 
 // Run initializes the driver
 func Run(ctx *cli.Context) {
-	if ctx.Bool("debug") {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetLevel(log.DebugLevel)
-	}
-
 	d, err := driver.StartDriver()
 	if err != nil {
 		panic(err)
 	}
 	h := network.NewHandler(d)
 
-	log.Debugf("Mellanox sriov plugin started version=%v", version)
-	log.Debugf("Ready to accept commands.")
+	log.Printf("Mellanox sriov plugin started version=%v\n", version)
+	log.Printf("Ready to accept commands.\n")
 
 	err = h.ServeUnix("sriov", 0)
 	if err != nil {

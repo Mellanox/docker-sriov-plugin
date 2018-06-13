@@ -11,8 +11,7 @@ import (
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
-
-	log "github.com/Sirupsen/logrus"
+	"log"
 )
 
 const (
@@ -116,13 +115,13 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 				options[key] = fmt.Sprintf("%s", value)
 			}
 		}
-		log.Debugf("parseNetworkGenericOptions %v", options)
+		log.Printf("parseNetworkGenericOptions %v\n", options)
 	default:
-		log.Debugf("unrecognized network config format: %v\n", reflect.TypeOf(opt))
+		log.Printf("unrecognized network config format: %v\n", reflect.TypeOf(opt))
 	}
 
 	if options[networkMode] == "" {
-		// default to passthrough
+		// default to sriov
 		options[networkMode] = networkModePT
 	} else {
 		if options[networkMode] != networkModePT &&
@@ -216,8 +215,8 @@ func (d *driver) _CreateNetwork(nid string, options map[string]string,
 func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 	var err error
 
-	log.Debugf("CreateNetwork Called: [ %+v ]\n", req)
-	log.Debugf("CreateNetwork IPv4Data len : [ %v ]\n", len(req.IPv4Data))
+	log.Printf("CreateNetwork Called: [ %+v ]\n", req)
+	log.Printf("CreateNetwork IPv4Data len : [ %v ]\n", len(req.IPv4Data))
 
 	d.Lock()
 	defer d.Unlock()
@@ -228,7 +227,7 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 
 	options, ret := parseNetworkOptions(req.NetworkID, req.Options)
 	if ret != nil {
-		log.Debugf("CreateNetwork network options parse error")
+		log.Printf("CreateNetwork network options parse error")
 		return ret
 	}
 
@@ -239,13 +238,13 @@ func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 }
 
 func (d *driver) AllocateNetwork(r *network.AllocateNetworkRequest) (*network.AllocateNetworkResponse, error) {
-	log.Debugf("AllocateNetwork Called: [ %+v ]", r)
+	log.Printf("AllocateNetwork() [ %+v ]\n", r)
 	return nil, nil
 }
 
 func (d *driver) DeleteNetwork(req *network.DeleteNetworkRequest) error {
 
-	log.Debugf("DeleteNetwork Called: [ %+v ]", req)
+	log.Printf("DeleteNetwork() [ %+v ]\n", req)
 
 	d.Lock()
 	defer d.Unlock()
@@ -262,7 +261,7 @@ func (d *driver) DeleteNetwork(req *network.DeleteNetworkRequest) error {
 }
 
 func (d *driver) FreeNetwork(r *network.FreeNetworkRequest) error {
-	log.Debugf("FreeNetwork Called: [ %+v ]", r)
+	log.Printf("FreeNetwork() [ %+v ]\n", r)
 	return nil
 }
 
@@ -328,8 +327,8 @@ func (d *driver) CreateEndpoint(r *network.CreateEndpointRequest) (*network.Crea
 	d.Lock()
 	defer d.Unlock()
 
-	log.Debugf("CreateEndpoint Called: [ %+v ]", r)
-	log.Debugf("r.Interface: [ %+v ]", r.Interface)
+	log.Printf("CreateEndpoint() [ %+v ]\n", r)
+	log.Printf("r.Interface: [ %+v ]\n", r.Interface)
 
 	nw := d.networks[r.NetworkID]
 	if nw == nil {
@@ -356,7 +355,7 @@ func (d *driver) getGenNwFromNetworkID(networkID string) *genericNetwork {
 }
 
 func (d *driver) EndpointInfo(r *network.InfoRequest) (*network.InfoResponse, error) {
-	log.Debugf("EndpointInfo Called: [ %+v ]", r)
+	log.Printf("EndpointInfo: [ %+v ]\n", r)
 	d.Lock()
 	defer d.Unlock()
 
@@ -376,12 +375,12 @@ func (d *driver) EndpointInfo(r *network.InfoRequest) (*network.InfoResponse, er
 	resp := &network.InfoResponse{
 		Value: value,
 	}
-	log.Debugf("EndpointInfo resp.Value : [ %+v ]", resp.Value)
+	log.Printf("EndpointInfo resp.Value : [ %+v ]\n", resp.Value)
 	return resp, nil
 }
 
 func (d *driver) Join(r *network.JoinRequest) (*network.JoinResponse, error) {
-	log.Debugf("Join Called: [ %+v ]", r)
+	log.Printf("Join() [ %+v ]\n", r)
 
 	d.Lock()
 	defer d.Unlock()
@@ -413,12 +412,12 @@ func (d *driver) Join(r *network.JoinRequest) (*network.JoinResponse, error) {
 		Gateway:               gw.String(),
 	}
 
-	log.Debugf("Join resp : [ %+v ]", resp)
+	log.Printf("Join resp : [ %+v ]\n", resp)
 	return &resp, nil
 }
 
 func (d *driver) Leave(r *network.LeaveRequest) error {
-	log.Debugf("Leave Called: [ %+v ]", r)
+	log.Printf("Leave(): [ %+v ]\n", r)
 	d.Lock()
 	defer d.Unlock()
 
@@ -437,7 +436,7 @@ func (d *driver) Leave(r *network.LeaveRequest) error {
 }
 
 func (d *driver) DeleteEndpoint(r *network.DeleteEndpointRequest) error {
-	log.Debugf("DeleteEndpoint Called: [ %+v ]", r)
+	log.Printf("DeleteEndpoint() [ %+v ]\n", r)
 
 	d.Lock()
 	defer d.Unlock()
@@ -460,22 +459,22 @@ func (d *driver) DeleteEndpoint(r *network.DeleteEndpointRequest) error {
 }
 
 func (d *driver) DiscoverNew(r *network.DiscoveryNotification) error {
-	log.Debugf("DiscoverNew Called: [ %+v ]", r)
+	log.Printf("DiscoverNew(): [ %+v ]\n", r)
 	return nil
 }
 
 func (d *driver) DiscoverDelete(r *network.DiscoveryNotification) error {
-	log.Debugf("DiscoverDelete Called: [ %+v ]", r)
+	log.Printf("DiscoverDelete: [ %+v ]\n", r)
 	return nil
 }
 
 func (d *driver) ProgramExternalConnectivity(r *network.ProgramExternalConnectivityRequest) error {
-	log.Debugf("ProgramExternalConnectivity Called: [ %+v ]", r)
+	log.Printf("ProgramExternalConnectivity(): [ %+v ]\n", r)
 	return nil
 }
 
 func (d *driver) RevokeExternalConnectivity(r *network.RevokeExternalConnectivityRequest) error {
-	log.Debugf("RevokeExternalConnectivity Called: [ %+v ]", r)
+	log.Printf("RevokeExternalConnectivity(): [ %+v ]\n", r)
 	return nil
 }
 
@@ -503,7 +502,7 @@ func (pt *ptNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	}
 	pt.genNw = genNw
 
-	log.Debugf("PT CreateNetwork : [%s] IPv4Data : [ %+v ]\n", pt.genNw.id, pt.genNw.IPv4Data)
+	log.Printf("PT CreateNetwork : [%s] IPv4Data : [ %+v ]\n", pt.genNw.id, pt.genNw.IPv4Data)
 	return nil
 }
 
@@ -530,7 +529,7 @@ func (nw *ptNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*network.
 		//endpointInterface.MacAddress = ndev.HardwareAddr
 	}
 	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
-	log.Debugf("PT CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
+	log.Printf("PT CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
 	return resp, nil
 }
 

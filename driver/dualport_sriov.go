@@ -3,10 +3,8 @@ package driver
 import (
 	"fmt"
 	"strconv"
-
+	"log"
 	"github.com/docker/go-plugins-helpers/network"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 type dpSriovNetwork struct {
@@ -100,7 +98,7 @@ func (nw *dpSriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 
 	dev := dpPfDevices[ndevName]
 	dev.nwUseRefCount++
-	log.Debugf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
+	log.Printf("SRIOV CreateNetwork : [%s] IPv4Data : [ %+v ]\n", nw.genNw.id, nw.genNw.IPv4Data)
 	return nil
 }
 
@@ -140,8 +138,7 @@ func (nw *dpSriovNetwork) DiscoverVFs(ndevName string) error {
 		dpPfDevices[ndevName] = &newDev
 		dev = &newDev
 	}
-	log.Debugf("DiscoverVF vfDev list length : [%d]",
-		dev.maxChildDev)
+	log.Printf("DiscoverVF vfDev list length : [%d]\n", dev.maxChildDev)
 	return nil
 }
 
@@ -183,13 +180,13 @@ func (nw *dpSriovNetwork) AllocVF(parentNetdev string) string {
 
 	dev.childNetdevLlist = dev.childNetdevLlist[:len(dev.childNetdevLlist)-1]
 
-	log.Debugf("AllocVF parent [ %+v ] vf:%v vfdev: %v",
+	log.Printf("AllocVF parent [ %+v ] vf:%v vfdev: %v\n",
 		parentNetdev, allocatedDev, len(dev.childNetdevLlist))
 	return allocatedDev
 }
 
 func (nw *dpSriovNetwork) FreeVF(pf *dpPfDevice, vfName string) {
-	log.Debugf("FreeVF %v", vfName)
+	log.Printf("FreeVF %v\n", vfName)
 	pf.childNetdevLlist = append(pf.childNetdevLlist, vfName)
 }
 
@@ -216,7 +213,7 @@ func (nw *dpSriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*net
 	}
 	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
 
-	log.Debugf("SRIOV CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
+	log.Printf("SRIOV CreateEndpoint resp interface: [ %+v ] \n", resp.Interface)
 	return resp, nil
 }
 
@@ -225,7 +222,7 @@ func (nw *dpSriovNetwork) DeleteEndpoint(endpoint *ptEndpoint) {
 	dev := dpPfDevices[nw.genNw.ndevName]
 
 	nw.FreeVF(dev, endpoint.vfName)
-	log.Debugf("DeleteEndpoint vfDev list length ----------: [ %+d ]", len(dev.childNetdevLlist))
+	log.Printf("DeleteEndpoint vfDev list length ----------: [ %+d ]\n", len(dev.childNetdevLlist))
 }
 
 func (nw *dpSriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkRequest) {
@@ -240,5 +237,5 @@ func (nw *dpSriovNetwork) DeleteNetwork(d *driver, req *network.DeleteNetworkReq
 		delete(dpPfDevices, nw.genNw.ndevName)
 	}
 	delete(dpNetworks, nw.genNw.id)
-	log.Debugf("DeleteNetwork: total dpNetworks = %d", len(dpNetworks))
+	log.Printf("DeleteNetwork: total dpNetworks = %d\n", len(dpNetworks))
 }
