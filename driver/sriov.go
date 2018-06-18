@@ -21,9 +21,10 @@ type pfDevice struct {
 }
 
 type sriovNetwork struct {
-	genNw      *genericNetwork
-	vlan       int
-	privileged int
+	genNw        *genericNetwork
+	vlan         int
+	privileged   int
+	roceHopLimit uint8
 }
 
 // nid to network map
@@ -63,7 +64,7 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	ndevName := options[networkDevice]
 	err = d.getNetworkByGateway(ipv4Data.Gateway)
 	if err != nil {
-		return err
+		return fmt.Errorf("Network gw error ", err)
 	}
 
 	if options[sriovVlan] != "" {
@@ -80,11 +81,24 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	}
 	nw.privileged = privileged
 
+	if options[roceHopLimit] != "" {
+		var err1 error
+		var value int
+		value, err1 = strconv.Atoi(options[roceHopLimit])
+		if err1 != nil {
+			return fmt.Errorf("Invalid roceHopLimit: ", err1)
+		}
+		if value < 0 || value > 255 {
+			return fmt.Errorf("Valid range of rocehoplimit is: [0..255]")
+		}
+		nw.roceHopLimit = uint8(value)
+	}
+
 	nw.genNw = genNw
 
 	err = SetPFLinkUp(ndevName)
 	if err != nil {
-		return err
+		return fmt.Errorf("Fail to set PF link up: ", err)
 	}
 
 	err = nw.DiscoverVFs(ndevName)
@@ -117,16 +131,16 @@ func initSriovState(pfNetdevName string, dev *pfDevice) error {
 
 	err = sriovnet.EnableSriov(pfNetdevName)
 	if err != nil {
-		return err
+		return fmt.Errorf("Fail to enable sriov: %v", err)
 	}
 	dev.pfHandle, err = sriovnet.GetPfNetdevHandle(pfNetdevName)
 	if err != nil {
-		return err
+		return fmt.Errorf("Fail to get device handle: %v", err)
 	}
 
 	err = sriovnet.ConfigVfs(dev.pfHandle, true)
 	if err != nil {
-		return err
+		return fmt.Errorf("Fail to configure vfs: %v", err)
 	}
 
 	dev.state = SRIOV_ENABLED
@@ -187,6 +201,13 @@ func (nw *sriovNetwork) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	if err2 != nil {
 		sriovnet.FreeVf(dev.pfHandle, vfObj)
 		return nil, fmt.Errorf("Fail to set priviledged err = %v", err2)
+	}
+
+	if nw.roceHopLimit != 0 {
+		err = setRoceHopLimitWA(sriovnet.GetVfNetdevName(dev.pfHandle, vfObj), nw.roceHopLimit)
+		if err != nil {
+			return nil, fmt.Errorf("Fail to set RoCE Hoplimit = %v", err)
+		}
 	}
 
 	log.Printf("AllocVF PF [ %+v ] vf:%v\n", nw.genNw.ndevName, vfObj)

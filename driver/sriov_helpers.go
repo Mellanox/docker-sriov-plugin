@@ -241,13 +241,17 @@ func SetVFPrivileged(parentNetdev string, vfDir string, privileged bool) error {
 }
 
 func SetPFLinkUp(parentNetdev string) error {
+	var err error
+
 	parentHandle, err1 := netlink.LinkByName(parentNetdev)
 	if err1 != nil {
-		return err1
+		return fmt.Errorf("Fail to get link handle for %v: ", parentNetdev, err1)
 	}
-
-	err2 := netlink.LinkSetUp(parentHandle)
-	return err2
+	netAttr := parentHandle.Attrs()
+	if netAttr.OperState != netlink.OperUp {
+		err = netlink.LinkSetUp(parentHandle)
+	}
+	return err
 }
 
 func IsSRIOVSupported(netdevName string) bool {

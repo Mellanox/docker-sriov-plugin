@@ -24,6 +24,7 @@ const (
 	sriovVlan         = "vlan"
 	networkPrivileged = "privileged"
 	ethPrefix         = "prefix"
+	roceHopLimit      = "rocehoplimit"
 )
 
 type ptEndpoint struct {
@@ -102,18 +103,20 @@ func parseNetworkGenericOptions(data interface{}) (map[string]string, error) {
 	switch opt := data.(type) {
 	case map[string]interface{}:
 		for key, value := range opt {
-			switch key {
-			case networkDevice:
-				options[key] = fmt.Sprintf("%s", value)
-			case networkMode:
-				options[key] = fmt.Sprintf("%s", value)
-			case sriovVlan:
-				options[key] = fmt.Sprintf("%s", value)
-			case networkPrivileged:
-				options[key] = fmt.Sprintf("%s", value)
-			case ethPrefix:
-				options[key] = fmt.Sprintf("%s", value)
-			}
+			//switch key {
+			//case networkDevice:
+			options[key] = fmt.Sprintf("%s", value)
+			//case networkMode:
+			//	options[key] = fmt.Sprintf("%s", value)
+			//case sriovVlan:
+			//	options[key] = fmt.Sprintf("%s", value)
+			//case networkPrivileged:
+			//	options[key] = fmt.Sprintf("%s", value)
+			//case ethPrefix:
+			//	options[key] = fmt.Sprintf("%s", value)
+			//case roceHopLimit:
+			//	options[key] = fmt.Sprintf("%s", value)
+			//}
 		}
 		log.Printf("parseNetworkGenericOptions %v\n", options)
 	default:
@@ -174,6 +177,7 @@ func (d *driver) _CreateNetwork(nid string, options map[string]string,
 
 		multiport = checkMultiPortDevice(options[networkDevice])
 		if multiport == true {
+			log.Println("Multiport driver for device: ", options[networkDevice])
 			nw := dpSriovNetwork{}
 			err = nw.CreateNetwork(d, genNw, nid, options, ipv4Data)
 			if err != nil {
@@ -181,6 +185,7 @@ func (d *driver) _CreateNetwork(nid string, options map[string]string,
 			}
 			d.networks[nid] = &nw
 		} else {
+			log.Println("Single port driver for device: ", options[networkDevice])
 			nw := sriovNetwork{}
 			err = nw.CreateNetwork(d, genNw, nid, options, ipv4Data)
 			if err != nil {
@@ -215,7 +220,7 @@ func (d *driver) _CreateNetwork(nid string, options map[string]string,
 func (d *driver) CreateNetwork(req *network.CreateNetworkRequest) error {
 	var err error
 
-	log.Printf("CreateNetwork Called: [ %+v ]\n", req)
+	log.Printf("CreateNetwork() : [ %+v ]\n", req)
 	log.Printf("CreateNetwork IPv4Data len : [ %v ]\n", len(req.IPv4Data))
 
 	d.Lock()
