@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"log"
 )
 
 const (
@@ -245,6 +246,7 @@ func SetPFLinkUp(parentNetdev string) error {
 
 	parentHandle, err1 := netlink.LinkByName(parentNetdev)
 	if err1 != nil {
+		log.Println("Fail to get parent handle: %v ", parentNetdev, err1)
 		return fmt.Errorf("Fail to get link handle for %v: ", parentNetdev, err1)
 	}
 	netAttr := parentHandle.Attrs()
