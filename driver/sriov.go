@@ -136,18 +136,22 @@ func initSriovState(pfNetdevName string, dev *pfDevice) error {
 		if err != nil {
 			return fmt.Errorf("Fail to enable sriov: %v", err)
 		}
+		log.Println("Enabled sriov on netdevice: ", pfNetdevName)
 	}
 
 	dev.pfHandle, err = sriovnet.GetPfNetdevHandle(pfNetdevName)
 	if err != nil {
+		log.Println("fail to get handle: ", pfNetdevName, err)
 		return fmt.Errorf("Fail to get device handle: %v", err)
 	}
 
 	if !enabled {
+		log.Println("Configuring sriov devices: ", pfNetdevName)
 		err = sriovnet.ConfigVfs(dev.pfHandle, true)
 		if err != nil {
 			return fmt.Errorf("Fail to configure vfs: %v", err)
 		}
+		log.Println("Configuring sriov devices done: ", pfNetdevName)
 	}
 
 	dev.state = SRIOV_ENABLED

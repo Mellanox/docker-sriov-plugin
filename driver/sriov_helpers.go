@@ -269,10 +269,9 @@ func IsSRIOVSupported(netdevName string) bool {
 func FindVFDirForNetdev(pfNetdevName string, vfNetdevName string) (string, error) {
 
 	virtFnDirs, err := GetVfPciDevList(pfNetdevName)
-	if err != nil {
-		return "", err
+	if err != nil || len(virtFnDirs) == 0 {
+		return "", fmt.Errorf("No vfs found for %v", vfNetdevName)
 	}
-
 	ndevSearchName := vfNetdevName + "__"
 
 	for _, vfDir := range virtFnDirs {
