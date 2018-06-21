@@ -55,10 +55,6 @@ func (nw *dpSriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	var privileged int
 
 	ndevName := options[networkDevice]
-	err = d.getNetworkByGateway(ipv4Data.Gateway)
-	if err != nil {
-		return err
-	}
 
 	if IsSRIOVSupported(ndevName) == false {
 		return fmt.Errorf("SRIOV is unsuppported on %s", ndevName)

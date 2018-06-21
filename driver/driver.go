@@ -483,28 +483,10 @@ func (d *driver) RevokeExternalConnectivity(r *network.RevokeExternalConnectivit
 	return nil
 }
 
-func (d *driver) getNetworkByGateway(gateway string) error {
-	for _, nw := range d.networks {
-		genNw := nw.getGenNw()
-		if genNw == nil {
-			continue
-		}
-		if genNw.IPv4Data.Gateway == gateway {
-			return fmt.Errorf("nw with same gateway exist %s", gateway)
-		}
-	}
-	return nil
-}
-
 func (pt *ptNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	nid string, options map[string]string,
 	ipv4Data *network.IPAMData) error {
-	var err error
 
-	err = d.getNetworkByGateway(ipv4Data.Gateway)
-	if err != nil {
-		return err
-	}
 	pt.genNw = genNw
 
 	log.Printf("PT CreateNetwork : [%s] IPv4Data : [ %+v ]\n", pt.genNw.id, pt.genNw.IPv4Data)

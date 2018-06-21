@@ -62,10 +62,6 @@ func (nw *sriovNetwork) CreateNetwork(d *driver, genNw *genericNetwork,
 	var privileged int
 
 	ndevName := options[networkDevice]
-	err = d.getNetworkByGateway(ipv4Data.Gateway)
-	if err != nil {
-		return fmt.Errorf("Network gw error ", err)
-	}
 
 	if options[sriovVlan] != "" {
 		vlan, _ = strconv.Atoi(options[sriovVlan])
