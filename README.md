@@ -60,7 +60,7 @@ $ docker pull mellanox/sriov-plugin
 
 **3.** Run the plugin now
 ```
-$ docker run -v /run/docker/plugins:/run/docker/plugins -v /etc/docker:/etc/docker --net=host --privileged mellanox/sriov-plugin
+$ docker run -v /run/docker/plugins:/run/docker/plugins -v /etc/docker:/etc/docker -v /var/run:/var/run --net=host --privileged mellanox/sriov-plugin
 ```
 This will start the container and emits console logs of the plugin where its started.
 The powerful aspect of this is, it doesn't require user/administrator to restart the docker engine.

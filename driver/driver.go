@@ -6,12 +6,13 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
-
+	"path/filepath"
 	"github.com/Mellanox/sriovnet"
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
 	"log"
+	"os"
 )
 
 const (
@@ -292,6 +293,12 @@ func (d *driver) CreatePersistentNetworks() error {
 	}
 
 	for _, n := range nwList {
+		if IsNetworkIdValid(n.NetworkID) == false {
+			nwDir := filepath.Join(persistConfigPath, n.NetworkID)
+			os.RemoveAll(nwDir)
+			log.Println("Skipping and deleting stale network: ", n.NetworkID)
+			continue
+		}
 		options, _ := BuildNetworkOptions(&n.Info)
 
 		ipv4Data := network.IPAMData{}
