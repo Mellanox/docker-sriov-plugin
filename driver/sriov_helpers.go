@@ -280,7 +280,7 @@ func FindVFDirForNetdev(pfNetdevName string, vfNetdevName string) (string, error
 			netDevPrefix, vfDir, "net")
 		vfNetdevList, err := lsDirs(vfNetdevPath)
 		if err != nil {
-			return "", err
+			continue
 		}
 		for _, vfName := range vfNetdevList {
 			vfNamePrefixed := vfName + "__"
