@@ -14,5 +14,6 @@ RUN export CGO_LDFLAGS_ALLOW='-Wl,--unresolved-symbols=ignore-in-object-files' &
 
 FROM debian:stretch-slim
 COPY --from=build /go/bin/docker-sriov-plugin /bin/docker-sriov-plugin
+COPY ibdev2netdev /tmp/tools/
 
 CMD ["/bin/docker-sriov-plugin"]
