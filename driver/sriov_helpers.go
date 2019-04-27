@@ -3,11 +3,11 @@ package driver
 import (
 	"fmt"
 	"github.com/vishvananda/netlink"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"log"
 )
 
 const (

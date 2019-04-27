@@ -2,17 +2,17 @@ package driver
 
 import (
 	"fmt"
-	"net"
-	"reflect"
-	"strconv"
-	"sync"
-	"path/filepath"
 	"github.com/Mellanox/sriovnet"
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/options"
 	"log"
+	"net"
 	"os"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"sync"
 )
 
 const (
