@@ -10,8 +10,10 @@
     "http2/hpack",
     "idna",
     "internal/timeseries",
+    "internal/socks",
     "lex/httplex",
-    "trace"
+    "trace",
+    "proxy"
   ]
   revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
 
@@ -58,9 +60,34 @@
   version = "v0.0.1"
 
 [[projects]]
-  name = "github.com/docker/go-plugins-helpers/network"
-  packages = ["."]
-  revision = "61cb8e2334204460162c8bd2417cd43cb71da66f"
+  name = "github.com/coreos/go-systemd"
+  packages = [
+    ".",
+    "activation",
+    "daemon",
+    "journal",
+    "util",
+  ]
+  revision = "d2196463941895ee908e13531a23a39feb9e1243"
+  version = "v0.0.1"
+
+[[projects]]
+  name = "github.com/docker/go-connections"
+  packages = [
+    ".",
+    "sockets",
+  ]
+  revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
+  version = "v0.0.1"
+
+[[projects]]
+  name = "github.com/docker/go-plugins-helpers"
+  packages = [
+    ".",
+    "network",
+    "sdk",
+  ]
+  revision = "bd8c600f0cdd76c7a57ff6aa86bd2b423868c688"
   version = "v0.0.1"
 
 [[projects]]
@@ -81,24 +108,21 @@
   revision = "9fed9e830316a115b30622b82575cbe8632a41e9"
   version = "v0.0.4"
 
-#[[projects]]
-#  name = "github.com/docker/libnetwork/netlabel"
-#  packages = ["."]
-#  revision = "40bae11aa7cdbe99dabbedba672f80fc0dfb6643"
-#  version = "v0.0.1"
-#
-#[[projects]]
-#  name = "github.com/docker/libnetwork/options"
-#  packages = ["."]
-#  revision = "8acef98c5fac86f62e216eda69ae44a4c7a90ba9"
-#  version = "v0.0.1"
+[[projects]]
+  name = "github.com/docker/libnetwork"
+  packages = [
+    ".",
+    "netlabel",
+    "options",
+  ]
+  revision = "40bae11aa7cdbe99dabbedba672f80fc0dfb6643"
+  version = "v0.0.1"
 
 [[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "36e9d2ebbde5e3f13ab2e25625fd453271d6522e"
   version = "v0.0.1"
-
 
 [solve-meta]
   analyzer-name = "dep"
