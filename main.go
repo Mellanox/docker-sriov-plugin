@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"docker-sriov-plugin/driver"
+	"github.com/psaab/docker-sriov-plugin/driver"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 )
 
 // Run initializes the driver
-func Run(ctx *cli.Context) {
+func Run(ctx *cli.Context) error {
 	d, err := driver.StartDriver()
 	if err != nil {
 		panic(err)
@@ -29,20 +29,23 @@ func Run(ctx *cli.Context) {
 		log.Fatal("Run app error: %s", err.Error())
 		os.Exit(1)
 	}
+	return err
 }
 
 func main() {
 
+/*
 	var flagDebug = cli.BoolFlag{
 		Name:  "debug, d",
 		Usage: "enable debugging",
 	}
+*/
 	app := cli.NewApp()
 	app.Name = "sriov"
 	app.Usage = "Docker Networking using SRIOV/Passthrough netdevices"
 	app.Version = version
 	app.Flags = []cli.Flag{
-		flagDebug,
+	//	flagDebug,
 	}
 	app.Action = Run
 	app.Run(os.Args)
